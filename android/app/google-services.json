@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "993897307925",
+    "project_id": "protean-iti-hiring",
+    "storage_bucket": "protean-iti-hiring.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:993897307925:android:42da06dfe75d126de7131c",
+        "android_client_info": {
+          "package_name": "com.example.seeker_2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrfaA2LT6KP6i-0oat9liCY38I1-GiW7M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:993897307925:android:2ee199807fbf8bb8e7131c",
+        "android_client_info": {
+          "package_name": "com.kuzushilabs.seeker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrfaA2LT6KP6i-0oat9liCY38I1-GiW7M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:993897307925:android:091a9997d6511bffe7131c",
+        "android_client_info": {
+          "package_name": "com.kuzushiprotean.seeker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrfaA2LT6KP6i-0oat9liCY38I1-GiW7M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -9,8 +9,8 @@ class User {
   final bool isVerified;
   final DateTime createdAt; // Use DateTime for dates
   final DateTime updatedAt; // Use DateTime for dates
-  // final String? role; // Present in CurrentUserResponse in api-interfaces.ts
-  // final DateTime? lastLogin; // Present in CurrentUserResponse
+  final String? role; // Present in CurrentUserResponse in api-interfaces.ts
+  final DateTime? lastLogin; // Present in CurrentUserResponse
 
   User({
     required this.id,
@@ -20,8 +20,8 @@ class User {
     required this.isVerified,
     required this.createdAt,
     required this.updatedAt,
-    // this.role,
-    // this.lastLogin,
+    this.role,
+    this.lastLogin,
   });
 
   // Factory constructor to create a User from JSON
@@ -35,8 +35,11 @@ class User {
       // Parse ISO 8601 date strings into DateTime objects
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
-      // role: json['role'] as String?, // Uncomment if adding from api-interfaces.ts
-      // lastLogin: json['last_login'] == null ? null : DateTime.parse(json['last_login'] as String), // Uncomment
+      role: json['role'] as String?,
+      lastLogin:
+          json['last_login'] == null
+              ? null
+              : DateTime.parse(json['last_login'] as String),
     );
   }
 
@@ -51,8 +54,8 @@ class User {
       // Convert DateTime objects back to ISO 8601 strings
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      // 'role': role, // Uncomment if adding
-      // 'last_login': lastLogin?.toIso8601String(), // Uncomment
+      'role': role,
+      'last_login': lastLogin?.toIso8601String(),
     };
   }
 }

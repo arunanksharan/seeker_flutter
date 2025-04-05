@@ -18,6 +18,7 @@ class AppTypography {
   // RN font weights mapped to Flutter FontWeight (from typography.ts)
   static const FontWeight _normal = FontWeight.w400; // '400'
   static const FontWeight _medium = FontWeight.w500; // '500'
+  // ignore: unused_field
   static const FontWeight _semibold =
       FontWeight.w600; // '600' - Added for potential mapping
   static const FontWeight _bold = FontWeight.w700; // '700'

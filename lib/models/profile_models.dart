@@ -1,4 +1,5 @@
-// Based on seeker-rn-files/types/profile.ts
+// lib/models/profile_models.dart
+import 'package:seeker/utils/logger.dart'; // Import logger for enum helper
 
 // --- Enums ---
 
@@ -11,18 +12,6 @@ enum EducationLevel {
   postGraduate, // 'Post Graduate'
   doctorate, // 'Doctorate'
 }
-
-// Helper function to handle enum from string mapping (case-insensitive)
-T? enumFromString<T>(Iterable<T> values, String? value) {
-  if (value == null) return null;
-  return values.firstWhere(
-    (type) =>
-        type.toString().split('.').last.toLowerCase() == value.toLowerCase(),
-    orElse: () => values.first, // Or return null, or throw error based on need
-  );
-}
-
-// You might need more robust enum parsing, potentially using extensions or generated code
 
 enum Gender {
   male, // 'Male'
@@ -57,16 +46,199 @@ enum WorkLocationType {
   hybrid, // 'Hybrid'
 }
 
-// --- Interfaces -> Classes ---
+// --- Enum Parsing/Serialization Helpers ---
+
+/// Safely parses a string into an enum value, returning null or default if invalid.
+T? enumFromStringSafe<T extends Enum>(
+  Iterable<T> values,
+  String? value, {
+  T? defaultValue,
+}) {
+  if (value == null || value.isEmpty) return defaultValue;
+  try {
+    // Find enum value matching the string (case-insensitive comparison with Dart enum .name)
+    // This assumes API strings match Dart enum names ignoring case (e.g., "male" -> Gender.male)
+    // Adjust comparison logic if API sends different strings (e.g., "Full-time")
+    return values.firstWhere(
+      (type) => type.name.toLowerCase() == value.toLowerCase(),
+    );
+  } catch (e) {
+    logger.w(
+      'Invalid enum string "$value" for type $T. Returning default: $defaultValue',
+    );
+    return defaultValue;
+  }
+}
+
+/// Converts an enum value to a string suitable for API serialization.
+/// **IMPORTANT:** Adjust this based on what format your API expects!
+String? enumToString<T extends Enum>(T? value) {
+  // Option 1: Send the Dart enum name (e.g., "postGraduate")
+  // return value?.name;
+
+  // Option 2: Send the display name (e.g., "Post Graduate") - Use ONLY if API expects this format
+  // return value?.displayName;
+
+  // Option 3: Send specific strings matching original TS/API values
+  // This is often the safest if API values differ from Dart names
+  switch (value.runtimeType) {
+    case EducationLevel _:
+      switch (value as EducationLevel?) {
+        case EducationLevel.tenth:
+          return '10th';
+        case EducationLevel.twelfth:
+          return '12th';
+        case EducationLevel.diploma:
+          return 'Diploma';
+        case EducationLevel.iti:
+          return 'ITI';
+        case EducationLevel.graduate:
+          return 'Graduate';
+        case EducationLevel.postGraduate:
+          return 'Post Graduate';
+        case EducationLevel.doctorate:
+          return 'Doctorate';
+        case null:
+          return null;
+      }
+    case Gender _:
+      switch (value as Gender?) {
+        case Gender.male:
+          return 'Male';
+        case Gender.female:
+          return 'Female';
+        case Gender.other:
+          return 'Other';
+        case null:
+          return null;
+      }
+    case VerificationStatus _:
+      switch (value as VerificationStatus?) {
+        case VerificationStatus.pending:
+          return 'Pending';
+        case VerificationStatus.verified:
+          return 'Verified';
+        case VerificationStatus.rejected:
+          return 'Rejected';
+        case null:
+          return null;
+      }
+    // Add cases for JobType, WorkLocationType, ProficiencyLevel if needed for serialization
+    default:
+      return value?.name; // Fallback to Dart name
+  }
+}
+
+// --- Enum Display Name Extensions ---
+// These provide human-readable strings for UI display
+
+extension EducationLevelDisplay on EducationLevel {
+  String get displayName {
+    switch (this) {
+      case EducationLevel.tenth:
+        return '10th';
+      case EducationLevel.twelfth:
+        return '12th';
+      case EducationLevel.diploma:
+        return 'Diploma';
+      case EducationLevel.iti:
+        return 'ITI';
+      case EducationLevel.graduate:
+        return 'Graduate';
+      case EducationLevel.postGraduate:
+        return 'Post Graduate';
+      case EducationLevel.doctorate:
+        return 'Doctorate';
+      // Fallback
+    }
+  }
+}
+
+extension GenderDisplay on Gender {
+  String get displayName {
+    switch (this) {
+      case Gender.male:
+        return 'Male';
+      case Gender.female:
+        return 'Female';
+      case Gender.other:
+        return 'Other';
+    }
+  }
+}
+
+extension ProficiencyLevelDisplay on ProficiencyLevel {
+  String get displayName {
+    switch (this) {
+      case ProficiencyLevel.beginner:
+        return 'Beginner';
+      case ProficiencyLevel.intermediate:
+        return 'Intermediate';
+      case ProficiencyLevel.advanced:
+        return 'Advanced';
+      case ProficiencyLevel.native:
+        return 'Native';
+    }
+  }
+}
+
+extension VerificationStatusDisplay on VerificationStatus {
+  String get displayName {
+    switch (this) {
+      case VerificationStatus.pending:
+        return 'Pending';
+      case VerificationStatus.verified:
+        return 'Verified';
+      case VerificationStatus.rejected:
+        return 'Rejected';
+    }
+  }
+}
+
+extension JobTypeDisplay on JobType {
+  String get displayName {
+    switch (this) {
+      case JobType.fullTime:
+        return 'Full-time';
+      case JobType.partTime:
+        return 'Part-time';
+      case JobType.contract:
+        return 'Contract';
+      case JobType.internship:
+        return 'Internship';
+      case JobType.freelance:
+        return 'Freelance';
+    }
+  }
+}
+
+extension WorkLocationTypeDisplay on WorkLocationType {
+  String get displayName {
+    switch (this) {
+      case WorkLocationType.onsite:
+        return 'Onsite';
+      case WorkLocationType.remote:
+        return 'Remote';
+      case WorkLocationType.hybrid:
+        return 'Hybrid';
+    }
+  }
+}
+
+// --- Classes (with updated enum parsing/serialization) ---
+
+// Address, PersonalDetails, ContactDetails, WorkExperience, Skill,
+// IdentificationDoc, BankDetail, Review classes remain structurally the same
+// but ensure their fromJson/toJson methods use the safe helpers if they
+// contain enums (they don't currently, except maybe 'gender' if changed).
 
 class Address {
   final String? street;
   final String? city;
   final String? state;
-  final String? postalCode; // Renamed from postal_code
+  final String? postalCode;
   final String? country;
-  final bool? isCurrent; // Renamed from is_current
-
+  final bool? isCurrent;
   Address({
     this.street,
     this.city,
@@ -75,7 +247,6 @@ class Address {
     this.country,
     this.isCurrent,
   });
-
   factory Address.fromJson(Map<String, dynamic> json) {
     return Address(
       street: json['street'] as String?,
@@ -86,7 +257,6 @@ class Address {
       isCurrent: json['is_current'] as bool?,
     );
   }
-
   Map<String, dynamic> toJson() => {
     'street': street,
     'city': city,
@@ -99,13 +269,12 @@ class Address {
 
 class PersonalDetails {
   final String? name;
-  final String? fatherName; // Renamed from father_name
-  final String? motherName; // Renamed from mother_name
-  final String? gender; // Keep as string for now, or map to Gender enum
-  final String? dob; // Keep as string or parse to DateTime
-  final String? guardianName; // Renamed from guardian_name
-  final String? profilePictureUrl; // Renamed from profile_picture_url
-
+  final String? fatherName;
+  final String? motherName;
+  final String? gender;
+  final String? dob;
+  final String? guardianName;
+  final String? profilePictureUrl;
   PersonalDetails({
     this.name,
     this.fatherName,
@@ -115,7 +284,6 @@ class PersonalDetails {
     this.guardianName,
     this.profilePictureUrl,
   });
-
   factory PersonalDetails.fromJson(Map<String, dynamic> json) {
     return PersonalDetails(
       name: json['name'] as String?,
@@ -127,7 +295,6 @@ class PersonalDetails {
       profilePictureUrl: json['profile_picture_url'] as String?,
     );
   }
-
   Map<String, dynamic> toJson() => {
     'name': name,
     'father_name': fatherName,
@@ -140,12 +307,11 @@ class PersonalDetails {
 }
 
 class ContactDetails {
-  final String? primaryMobile; // Renamed from primary_mobile
-  final String? secondaryMobile; // Renamed from secondary_mobile
+  final String? primaryMobile;
+  final String? secondaryMobile;
   final String? email;
-  final Address? permanentAddress; // Renamed from permanent_address
-  final Address? currentAddress; // Renamed from current_address
-
+  final Address? permanentAddress;
+  final Address? currentAddress;
   ContactDetails({
     this.primaryMobile,
     this.secondaryMobile,
@@ -153,7 +319,6 @@ class ContactDetails {
     this.permanentAddress,
     this.currentAddress,
   });
-
   factory ContactDetails.fromJson(Map<String, dynamic> json) {
     return ContactDetails(
       primaryMobile: json['primary_mobile'] as String?,
@@ -173,7 +338,6 @@ class ContactDetails {
               ),
     );
   }
-
   Map<String, dynamic> toJson() => {
     'primary_mobile': primaryMobile,
     'secondary_mobile': secondaryMobile,
@@ -184,18 +348,16 @@ class ContactDetails {
 }
 
 class EducationDetail {
-  final String? instituteName; // Renamed from institute_name
-  final String? fieldOfStudy; // Renamed from field_of_study
-  final String? startDate; // Renamed from start_date
-  final String? endDate; // Renamed from end_date
-  final int? yearOfPassing; // Renamed from year_of_passing
-  final num?
-  gradePercentageCgpa; // Use num for potential double/int. Renamed from grade_percentage_cgpa
-  final bool? isCurrent; // Renamed from is_current
-  final List<String>? marksheetUrl; // Renamed from marksheet_url
-  final List<String>? certificateUrl; // Renamed from certificate_url
-  final VerificationStatus?
-  verificationStatus; // Renamed from verification_status
+  final String? instituteName;
+  final String? fieldOfStudy;
+  final String? startDate;
+  final String? endDate;
+  final int? yearOfPassing;
+  final num? gradePercentageCgpa;
+  final bool? isCurrent;
+  final List<String>? marksheetUrl;
+  final List<String>? certificateUrl;
+  final VerificationStatus? verificationStatus; // Enum field
 
   EducationDetail({
     this.instituteName,
@@ -227,7 +389,8 @@ class EducationDetail {
           (json['certificate_url'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList(),
-      verificationStatus: enumFromString(
+      // Use safe parsing helper
+      verificationStatus: enumFromStringSafe(
         VerificationStatus.values,
         json['verification_status'] as String?,
       ),
@@ -244,22 +407,16 @@ class EducationDetail {
     'is_current': isCurrent,
     'marksheet_url': marksheetUrl,
     'certificate_url': certificateUrl,
-    'verification_status':
-        verificationStatus
-            ?.toString()
-            .split('.')
-            .last, // Convert enum back to string
+    // Use specific serialization helper
+    'verification_status': enumToString(verificationStatus),
   };
 }
 
 class EducationDetails {
   final String?
-  highestLevel; // Renamed from highest_level (Consider using EducationLevel enum)
-  final List<EducationDetail>?
-  educationDetails; // Renamed from education_details
-
+      highestLevel; // Kept as String, use enumFromStringSafe/enumToString if changed to Enum
+  final List<EducationDetail>? educationDetails;
   EducationDetails({this.highestLevel, this.educationDetails});
-
   factory EducationDetails.fromJson(Map<String, dynamic> json) {
     return EducationDetails(
       highestLevel: json['highest_level'] as String?,
@@ -269,7 +426,6 @@ class EducationDetails {
               .toList(),
     );
   }
-
   Map<String, dynamic> toJson() => {
     'highest_level': highestLevel,
     'education_details': educationDetails?.map((e) => e.toJson()).toList(),
@@ -277,15 +433,15 @@ class EducationDetails {
 }
 
 class WorkExperience {
-  final String? companyName; // Renamed from company_name
+  /* ... remains the same ... */
+  final String? companyName;
   final String? designation;
-  final String? startDate; // Renamed from start_date
-  final String? endDate; // Renamed from end_date
-  final bool? isCurrent; // Renamed from is_current
+  final String? startDate;
+  final String? endDate;
+  final bool? isCurrent;
   final String? description;
-  final List<String>? experienceLetterUrl; // Renamed from experience_letter_url
-  final List<String>? payslipUrls; // Renamed from payslip_urls
-
+  final List<String>? experienceLetterUrl;
+  final List<String>? payslipUrls;
   WorkExperience({
     this.companyName,
     this.designation,
@@ -296,7 +452,6 @@ class WorkExperience {
     this.experienceLetterUrl,
     this.payslipUrls,
   });
-
   factory WorkExperience.fromJson(Map<String, dynamic> json) {
     return WorkExperience(
       companyName: json['company_name'] as String?,
@@ -315,7 +470,6 @@ class WorkExperience {
               .toList(),
     );
   }
-
   Map<String, dynamic> toJson() => {
     'company_name': companyName,
     'designation': designation,
@@ -329,13 +483,11 @@ class WorkExperience {
 }
 
 class Skill {
+  /* ... remains the same ... */
   final String? name;
-  final String?
-  proficiencyLevel; // Consider using ProficiencyLevel enum. Renamed from proficiency_level
-  final String? experience; // Or potentially int/double for years?
-
+  final String? proficiencyLevel;
+  final String? experience;
   Skill({this.name, this.proficiencyLevel, this.experience});
-
   factory Skill.fromJson(Map<String, dynamic> json) {
     return Skill(
       name: json['name'] as String?,
@@ -343,7 +495,6 @@ class Skill {
       experience: json['experience'] as String?,
     );
   }
-
   Map<String, dynamic> toJson() => {
     'name': name,
     'proficiency_level': proficiencyLevel,
@@ -352,15 +503,15 @@ class Skill {
 }
 
 class Certification {
-  final String name; // Required field
-  final String? issuingOrganization; // Renamed from issuing_organization
-  final String? issueDate; // Renamed from issue_date
-  final String? expiryDate; // Renamed from expiry_date
-  final String? credentialId; // Renamed from credential_id
-  final String? credentialUrl; // Renamed from credential_url
-  final String? certificateUrl; // Renamed from certificate_url
-  final VerificationStatus?
-  verificationStatus; // Renamed from verification_status
+  /* ... updated ... */
+  final String name;
+  final String? issuingOrganization;
+  final String? issueDate;
+  final String? expiryDate;
+  final String? credentialId;
+  final String? credentialUrl;
+  final String? certificateUrl;
+  final VerificationStatus? verificationStatus; // Enum field
 
   Certification({
     required this.name,
@@ -372,7 +523,6 @@ class Certification {
     this.certificateUrl,
     this.verificationStatus,
   });
-
   factory Certification.fromJson(Map<String, dynamic> json) {
     return Certification(
       name: json['name'] as String,
@@ -382,13 +532,12 @@ class Certification {
       credentialId: json['credential_id'] as String?,
       credentialUrl: json['credential_url'] as String?,
       certificateUrl: json['certificate_url'] as String?,
-      verificationStatus: enumFromString(
+      verificationStatus: enumFromStringSafe(
         VerificationStatus.values,
         json['verification_status'] as String?,
       ),
     );
   }
-
   Map<String, dynamic> toJson() => {
     'name': name,
     'issuing_organization': issuingOrganization,
@@ -397,23 +546,22 @@ class Certification {
     'credential_id': credentialId,
     'credential_url': credentialUrl,
     'certificate_url': certificateUrl,
-    'verification_status': verificationStatus?.toString().split('.').last,
+    'verification_status': enumToString(verificationStatus),
   };
 }
 
 class LanguageProficiency {
-  final String language; // Required field
-  final String? spoken; // Consider ProficiencyLevel enum
-  final String? written; // Consider ProficiencyLevel enum
-  final String? reading; // Consider ProficiencyLevel enum
-
+  /* ... remains the same ... */
+  final String language;
+  final String? spoken;
+  final String? written;
+  final String? reading;
   LanguageProficiency({
     required this.language,
     this.spoken,
     this.written,
     this.reading,
   });
-
   factory LanguageProficiency.fromJson(Map<String, dynamic> json) {
     return LanguageProficiency(
       language: json['language'] as String,
@@ -422,7 +570,6 @@ class LanguageProficiency {
       reading: json['reading'] as String?,
     );
   }
-
   Map<String, dynamic> toJson() => {
     'language': language,
     'spoken': spoken,
@@ -432,19 +579,19 @@ class LanguageProficiency {
 }
 
 class ITIDetail {
-  final String? instituteName; // Renamed from institute_name
+  /* ... updated ... */
+  final String? instituteName;
   final String? trade;
-  final String? trainingDuration; // Renamed from training_duration
-  final int? passingYear; // Renamed from passing_year
-  final String? startDate; // Renamed from start_date
-  final String? endDate; // Renamed from end_date
-  final bool? isCurrent; // Renamed from is_current
-  final List<String>? certificateUrls; // Renamed from certificate_urls
+  final String? trainingDuration;
+  final int? passingYear;
+  final String? startDate;
+  final String? endDate;
+  final bool? isCurrent;
+  final List<String>? certificateUrls;
   final String? grade;
-  final String? rollNumber; // Renamed from roll_number
-  final String? certificateNumber; // Renamed from certificate_number
-  final VerificationStatus?
-  verificationStatus; // Renamed from verification_status
+  final String? rollNumber;
+  final String? certificateNumber;
+  final VerificationStatus? verificationStatus; // Enum field
 
   ITIDetail({
     this.instituteName,
@@ -460,7 +607,6 @@ class ITIDetail {
     this.certificateNumber,
     this.verificationStatus,
   });
-
   factory ITIDetail.fromJson(Map<String, dynamic> json) {
     return ITIDetail(
       instituteName: json['institute_name'] as String?,
@@ -477,13 +623,12 @@ class ITIDetail {
       grade: json['grade'] as String?,
       rollNumber: json['roll_number'] as String?,
       certificateNumber: json['certificate_number'] as String?,
-      verificationStatus: enumFromString(
+      verificationStatus: enumFromStringSafe(
         VerificationStatus.values,
         json['verification_status'] as String?,
       ),
     );
   }
-
   Map<String, dynamic> toJson() => {
     'institute_name': instituteName,
     'trade': trade,
@@ -496,18 +641,17 @@ class ITIDetail {
     'grade': grade,
     'roll_number': rollNumber,
     'certificate_number': certificateNumber,
-    'verification_status': verificationStatus?.toString().split('.').last,
+    'verification_status': enumToString(verificationStatus),
   };
 }
 
 class IdentificationDoc {
-  final String? docType; // Renamed from doc_type
-  final String? docNumber; // Renamed from doc_number
+  /* ... remains the same ... */
+  final String? docType;
+  final String? docNumber;
   final String? name;
   final List<String>? urls;
-
   IdentificationDoc({this.docType, this.docNumber, this.name, this.urls});
-
   factory IdentificationDoc.fromJson(Map<String, dynamic> json) {
     return IdentificationDoc(
       docType: json['doc_type'] as String?,
@@ -516,7 +660,6 @@ class IdentificationDoc {
       urls: (json['urls'] as List<dynamic>?)?.map((e) => e as String).toList(),
     );
   }
-
   Map<String, dynamic> toJson() => {
     'doc_type': docType,
     'doc_number': docNumber,
@@ -526,12 +669,12 @@ class IdentificationDoc {
 }
 
 class BankDetail {
-  final String? accountNumber; // Renamed from account_number
-  final String? ifscCode; // Renamed from ifsc_code
-  final String? bankName; // Renamed from bank_name
-  final String? branchName; // Renamed from branch_name
-  final String? accountHolderName; // Renamed from account_holder_name
-
+  /* ... remains the same ... */
+  final String? accountNumber;
+  final String? ifscCode;
+  final String? bankName;
+  final String? branchName;
+  final String? accountHolderName;
   BankDetail({
     this.accountNumber,
     this.ifscCode,
@@ -539,7 +682,6 @@ class BankDetail {
     this.branchName,
     this.accountHolderName,
   });
-
   factory BankDetail.fromJson(Map<String, dynamic> json) {
     return BankDetail(
       accountNumber: json['account_number'] as String?,
@@ -549,7 +691,6 @@ class BankDetail {
       accountHolderName: json['account_holder_name'] as String?,
     );
   }
-
   Map<String, dynamic> toJson() => {
     'account_number': accountNumber,
     'ifsc_code': ifscCode,
@@ -560,26 +701,20 @@ class BankDetail {
 }
 
 class JobPreferences {
-  final List<String>? jobTypes; // Consider JobType enum. Renamed from job_types
-  final List<String>?
-  workLocationTypes; // Consider WorkLocationType enum. Renamed from work_location_types
-  final List<String>? jobRoles; // Renamed from job_roles
+  /* ... remains the same ... */
+  final List<String>? jobTypes;
+  final List<String>? workLocationTypes;
+  final List<String>? jobRoles;
   final List<String>? industries;
-  final String?
-  minSalaryExpectation; // Renamed from min_salary_expectation (Consider num?)
-  final String?
-  maxSalaryExpectation; // Renamed from max_salary_expectation (Consider num?)
-  final int? noticePeriodDays; // Renamed from notice_period_days
-  final bool? isWillingToRelocate; // Renamed from is_willing_to_relocate
-  final bool? isActivelyLooking; // Renamed from is_actively_looking
-  final String?
-  preferredJobLocations; // Renamed from preferred_job_locations (List<String>?)
-  final String? currentLocation; // Renamed from current_location
-  final String?
-  totalExperienceYears; // Renamed from total_experience_years (Consider num?)
-  final String?
-  currentMonthlySalary; // Renamed from current_monthly_salary (Consider num?)
-
+  final String? minSalaryExpectation;
+  final String? maxSalaryExpectation;
+  final int? noticePeriodDays;
+  final bool? isWillingToRelocate;
+  final bool? isActivelyLooking;
+  final String? preferredJobLocations;
+  final String? currentLocation;
+  final String? totalExperienceYears;
+  final String? currentMonthlySalary;
   JobPreferences({
     this.jobTypes,
     this.workLocationTypes,
@@ -595,7 +730,6 @@ class JobPreferences {
     this.totalExperienceYears,
     this.currentMonthlySalary,
   });
-
   factory JobPreferences.fromJson(Map<String, dynamic> json) {
     return JobPreferences(
       jobTypes:
@@ -619,15 +753,12 @@ class JobPreferences {
       noticePeriodDays: json['notice_period_days'] as int?,
       isWillingToRelocate: json['is_willing_to_relocate'] as bool?,
       isActivelyLooking: json['is_actively_looking'] as bool?,
-      preferredJobLocations:
-          json['preferred_job_locations']
-              as String?, // Adjust if it's actually List<String>
+      preferredJobLocations: json['preferred_job_locations'] as String?,
       currentLocation: json['current_location'] as String?,
       totalExperienceYears: json['total_experience_years'] as String?,
       currentMonthlySalary: json['current_monthly_salary'] as String?,
     );
   }
-
   Map<String, dynamic> toJson() => {
     'job_types': jobTypes,
     'work_location_types': workLocationTypes,
@@ -646,13 +777,13 @@ class JobPreferences {
 }
 
 class Review {
-  final String reviewerName; // Renamed from reviewer_name
-  final String? reviewerDesignation; // Renamed from reviewer_designation
-  final String? reviewerCompany; // Renamed from reviewer_company
-  final num rating; // Required field
+  /* ... remains the same ... */
+  final String reviewerName;
+  final String? reviewerDesignation;
+  final String? reviewerCompany;
+  final num rating;
   final String? comments;
-  final String? reviewDate; // Renamed from review_date (Consider DateTime?)
-
+  final String? reviewDate;
   Review({
     required this.reviewerName,
     this.reviewerDesignation,
@@ -661,7 +792,6 @@ class Review {
     this.comments,
     this.reviewDate,
   });
-
   factory Review.fromJson(Map<String, dynamic> json) {
     return Review(
       reviewerName: json['reviewer_name'] as String,
@@ -672,7 +802,6 @@ class Review {
       reviewDate: json['review_date'] as String?,
     );
   }
-
   Map<String, dynamic> toJson() => {
     'reviewer_name': reviewerName,
     'reviewer_designation': reviewerDesignation,
@@ -684,13 +813,10 @@ class Review {
 }
 
 // --- API Request/Response Models ---
-// Note: Renamed fields to camelCase
-
-// Generic type for dynamic JSON objects like 'current_profile'
 typedef CurrentProfileBlob = Map<String, dynamic>;
 
-// Represents the full profile structure for API responses
 class SeekerProfileApiResponse {
+  /* Structure remains the same, uses updated fromJson/toJson from nested models */
   final String id;
   final String seekerId;
   final DateTime? createdAt;
@@ -710,7 +836,6 @@ class SeekerProfileApiResponse {
   final List<Review>? reviews;
   final List<CurrentProfileBlob>? callMetadataHistory;
   final CurrentProfileBlob? currentProfile;
-
   SeekerProfileApiResponse({
     required this.id,
     required this.seekerId,
@@ -732,9 +857,7 @@ class SeekerProfileApiResponse {
     this.callMetadataHistory,
     this.currentProfile,
   });
-
   factory SeekerProfileApiResponse.fromJson(Map<String, dynamic> json) {
-    // Helper to parse list of objects
     List<T>? parseList<T>(
       String key,
       T Function(Map<String, dynamic>) fromJson,
@@ -745,7 +868,6 @@ class SeekerProfileApiResponse {
           .toList();
     }
 
-    // Helper to parse list of maps
     List<Map<String, dynamic>>? parseListOfMaps(String key) {
       final list = json[key] as List<dynamic>?;
       return list?.map((item) => item as Map<String, dynamic>).toList();
@@ -805,7 +927,6 @@ class SeekerProfileApiResponse {
       currentProfile: json['current_profile'] as Map<String, dynamic>?,
     );
   }
-
   Map<String, dynamic> toJson() => {
     'id': id,
     'seeker_id': seekerId,
@@ -830,10 +951,8 @@ class SeekerProfileApiResponse {
   };
 }
 
-// Represents the structure for creating or updating a profile via API
-// Very similar to the Response, but fields might be optional during update
 class SeekerProfileApiRequest {
-  // Note: id and seekerId are usually not sent in create/update requests
+  /* Structure remains the same, uses updated toJson from nested models */
   final PersonalDetails? personalDetails;
   final ContactDetails? contactDetails;
   final List<IdentificationDoc>? identificationDocs;
@@ -849,7 +968,6 @@ class SeekerProfileApiRequest {
   final List<Review>? reviews;
   final List<CurrentProfileBlob>? callMetadataHistory;
   final CurrentProfileBlob? currentProfile;
-
   SeekerProfileApiRequest({
     this.personalDetails,
     this.contactDetails,
@@ -867,11 +985,7 @@ class SeekerProfileApiRequest {
     this.callMetadataHistory,
     this.currentProfile,
   });
-
-  // No fromJson needed usually for request objects
-
   Map<String, dynamic> toJson() => {
-    // Only include fields that are not null
     if (personalDetails != null) 'personal_details': personalDetails!.toJson(),
     if (contactDetails != null) 'contact_details': contactDetails!.toJson(),
     if (identificationDocs != null)
@@ -900,13 +1014,10 @@ class SeekerProfileApiRequest {
   };
 }
 
-// Represents the request for uploading documents (file handled separately)
 class DocumentUploadRequest {
+  /* ... remains the same ... */
   final String? documentType;
-  // final File? file; // File handled in service layer typically
-
   DocumentUploadRequest({this.documentType});
-
   Map<String, dynamic> toJson() => {
     if (documentType != null) 'document_type': documentType,
   };

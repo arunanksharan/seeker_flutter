@@ -1,22 +1,29 @@
 // lib/services/api_client.dart
-import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // For providers
-import 'package:seeker_flutter/core/config.dart';
-import 'package:seeker_flutter/models/auth_models.dart'; // For AuthResponse parsing
-import 'package:seeker_flutter/services/token_service.dart';
-import 'package:seeker_flutter/utils/logger.dart';
+import 'dart:async'; // For Completer/Future needed if improving queue
 
-// Provider for the TokenService
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:seeker/core/config.dart';
+import 'package:seeker/models/auth_models.dart';
+import 'package:seeker/services/token_service.dart';
+import 'package:seeker/utils/logger.dart';
+// Import auth state provider to trigger logout
+import 'package:seeker/features/auth/application/auth_state.dart';
+
+// Provider for the TokenService (can stay the same)
 final tokenServiceProvider = Provider<TokenService>((ref) => TokenService());
 
-// Provider for the main Dio instance used by the app
+// Provider for the main Dio instance (now depends on ApiClient directly)
+// The ApiClient itself will be provided separately if needed,
+// but often only the configured Dio instance is needed by other services.
 final dioProvider = Provider<Dio>((ref) {
-  final tokenService = ref.watch(tokenServiceProvider);
-  return ApiClient(tokenService).dio; // Provide the configured Dio instance
+  // Provide Ref to ApiClient constructor for accessing other providers internally
+  return ApiClient(ref).dio;
 });
 
-// Specific Dio instance for refresh token calls (avoids interceptor loop)
+// Provider for the separate Dio instance for refresh token calls
 final dioRefreshProvider = Provider<Dio>((ref) {
+  logger.d("Creating dioRefreshProvider instance"); // Log instance creation
   final options = BaseOptions(
     baseUrl: AppConfig.apiUrl,
     connectTimeout: Duration(milliseconds: AppConfig.apiTimeoutMs),
@@ -26,13 +33,25 @@ final dioRefreshProvider = Provider<Dio>((ref) {
   return Dio(options);
 });
 
+// --- ApiClient Class ---
 class ApiClient {
-  final TokenService _tokenService;
-  late final Dio dio; // Main instance with interceptors
-  bool _isRefreshing = false; // Flag to prevent multiple refresh attempts
-  final List<RequestOptions> _retryQueue = []; // Queue for failed requests
+  final Ref _ref; // Use Ref for reading providers internally
+  late final Dio dio;
+  // Access TokenService via Ref
+  TokenService get _tokenService => _ref.read(tokenServiceProvider);
 
-  ApiClient(this._tokenService) {
+  // --- Refresh Token Lock and Queue ---
+  // Volatile flag to prevent multiple concurrent refresh attempts.
+  // A more robust solution might use a Mutex or Completer if high concurrency is expected.
+  bool _isRefreshing = false;
+  // Simplified queue: stores options of requests that failed with 401 while refreshing.
+  // Note: This implementation retries requests but doesn't easily return the
+  //       retry result back to the original caller. Full queuing solutions are complex.
+  final List<RequestOptions> _retryQueue = [];
+  // --- ---------------------------- ---
+
+  ApiClient(this._ref) {
+    // Constructor now takes Ref
     final options = BaseOptions(
       baseUrl: AppConfig.apiUrl,
       connectTimeout: Duration(milliseconds: AppConfig.apiTimeoutMs),
@@ -59,278 +78,290 @@ class ApiClient {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    // Basic logging... (remains the same)
     logger.d('--> ${options.method.toUpperCase()} ${options.path}');
-    logger.d('Headers: ${options.headers}');
-    if (options.data != null) {
-      logger.d('Data: ${options.data}');
-    }
-    if (options.queryParameters.isNotEmpty) {
-      logger.d('Query Params: ${options.queryParameters}');
-    }
 
-    // Paths that don't need the backend access token automatically attached
     final noAuthPaths = [
+      /* ... (paths remain the same) ... */
       '/api/v1/auth/refresh',
-      '/api/v1/auth/exchange-firebase-token', // Firebase token is added manually
-      '/api/v1/auth/request-otp', // Assuming OTP doesn't need auth
-      '/api/v1/auth/verify-otp', // Assuming OTP doesn't need auth
-      '/api/v1/auth/signup', // Assuming signup doesn't need auth
-      // Add other public paths if necessary
+      '/api/v1/auth/exchange-firebase-token',
+      '/api/v1/auth/request-otp',
+      '/api/v1/auth/verify-otp',
+      '/api/v1/auth/signup',
     ];
 
+    // Add Authorization header if required
     if (!noAuthPaths.any((path) => options.path.contains(path))) {
       final accessToken = await _tokenService.getAccessToken();
       if (accessToken != null) {
         options.headers['Authorization'] = 'Bearer $accessToken';
-        logger.d('Authorization header added.');
+        logger.d('Authorization header added for ${options.path}.');
       } else {
         logger.w(
           'No access token found for authorized request to ${options.path}',
         );
+        // Optional: Depending on app requirements, you might want to reject the request here
+        // if an access token is strictly required but missing.
+        // handler.reject(DioException(requestOptions: options, message: "Access token missing"));
+        // return;
       }
     } else {
       logger.d('Skipping token attachment for public path: ${options.path}');
-      // Special check for firebase token exchange - log if header exists
-      if (options.path.contains('/exchange-firebase-token') &&
-          options.headers.containsKey('Authorization')) {
-        logger.i('Firebase ID token found in header for exchange request.');
-      }
     }
 
-    return handler.next(options); // Continue the request
+    return handler.next(options);
   }
 
   // --- Response Interceptor ---
   void _onResponse(Response response, ResponseInterceptorHandler handler) {
+    // Basic logging... (remains the same)
     logger.d(
       '<-- ${response.statusCode} ${response.requestOptions.method.toUpperCase()} ${response.requestOptions.path}',
     );
-    // logger.d('Response Data: ${response.data}'); // Be careful logging sensitive data
-    return handler.next(response); // Continue with the response
+    return handler.next(response);
   }
 
-  // --- Error Interceptor ---
+  // --- Error Interceptor (Refined) ---
   Future<void> _onError(
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
     logger.e(
-      '<-- ${err.response?.statusCode} ${err.requestOptions.method.toUpperCase()} ${err.requestOptions.path}',
+      '<-- ERROR ${err.response?.statusCode} ${err.requestOptions.method.toUpperCase()} ${err.requestOptions.path}',
     );
     logger.e(
       'Dio Error: ${err.message}',
       error: err.error,
       stackTrace: err.stackTrace,
     );
-    if (err.response?.data != null) {
+    if (err.response?.data != null)
       logger.e('Error Data: ${err.response?.data}');
-    }
 
     final response = err.response;
     final requestOptions = err.requestOptions;
 
-    // Only attempt refresh for 401 Unauthorized errors and not for auth endpoints themselves
+    // Attempt refresh only for 401 Unauthorized errors on non-auth endpoints
     final isAuthEndpoint = requestOptions.path.contains('/api/v1/auth/');
     if (response?.statusCode == 401 && !isAuthEndpoint) {
       logger.w(
-        'Received 401 Unauthorized for ${requestOptions.path}. Attempting token refresh.',
+        'Received 401 Unauthorized for ${requestOptions.path}. Handling token refresh.',
       );
 
+      // --- Locking Mechanism ---
       if (!_isRefreshing) {
-        // Check if refresh is already in progress
+        // Acquire lock: Only one refresh attempt at a time
         _isRefreshing = true;
-        try {
-          final newTokens = await _refreshToken();
-          if (newTokens != null) {
-            logger.i(
-              'Token refresh successful. Retrying original request and queued requests.',
-            );
-            // Update header for the failed request before retrying
-            requestOptions.headers['Authorization'] =
-                'Bearer ${newTokens.accessToken}';
-            _isRefreshing =
-                false; // Release lock before retrying/processing queue
+        logger.d('Acquired token refresh lock.');
 
-            // Retry the original request
+        try {
+          final newTokens = await _refreshToken(); // Attempt refresh
+
+          if (newTokens != null) {
+            // --- Refresh Successful ---
+            logger.i(
+              'Token refresh successful. Retrying original request and processing queue.',
+            );
+            final newAccessToken = newTokens.accessToken;
+            // Update header for the original failed request
+            requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+
+            // Release lock *before* retrying and processing queue
+            _isRefreshing = false;
+            logger.d('Released token refresh lock (Success).');
+
+            // Retry the original request that failed with 401
             try {
-              final retryResponse = await dio.request(
-                requestOptions.path,
-                options: Options(
-                  // Use Options to pass headers, method etc.
-                  method: requestOptions.method,
-                  headers: requestOptions.headers,
-                  data: requestOptions.data,
-                  queryParameters: requestOptions.queryParameters,
-                ),
-              );
+              logger.d('Retrying original request: ${requestOptions.path}');
+              // Use dio.fetch which accepts RequestOptions directly for a cleaner retry
+              final retryResponse = await dio.fetch(requestOptions);
               logger.i('Original request successful after retry.');
-              _processRetryQueue(
-                newTokens.accessToken,
-              ); // Process queued requests
+              // Process any queued requests *after* successfully retrying the original
+              _processRetryQueue(newAccessToken);
               return handler.resolve(
                 retryResponse,
-              ); // Resolve with the new response
-            } catch (retryError) {
+              ); // Resolve the original error with the new response
+            } on DioException catch (retryError) {
+              // Catch error during retry
               logger.e(
-                'Original request failed even after token refresh.',
+                'Original request failed AFTER token refresh and retry.',
                 error: retryError,
               );
-              _clearRetryQueue(); // Clear queue if retry fails
-              // Fall through to reject the original error if retry fails
+              _clearRetryQueue(); // Clear queue as retry failed
+              // Reject with the retry error, as it's more relevant now than the original 401
+              return handler.reject(retryError);
             }
           } else {
-            // Refresh token failed (e.g., expired/invalid refresh token)
-            logger.e('Token refresh failed. Clearing tokens and queue.');
+            // --- Refresh Failed (e.g., invalid refresh token) ---
+            logger.e(
+              'Token refresh failed. Clearing tokens & queue, triggering logout.',
+            );
             await _tokenService.clearTokens();
-            _isRefreshing = false;
-            _clearRetryQueue(); // Clear queue as we can't retry
-            // TODO: Trigger global logout state via Riverpod provider
-            return handler.reject(err); // Reject the original error
+            _clearRetryQueue();
+            // TODO: Trigger global logout state via Riverpod provider - IMPLEMENTED
+            _ref.read(authStateProvider.notifier).logout(); // Trigger logout
+            _isRefreshing = false; // Release lock
+            logger.d('Released token refresh lock (Refresh Failed).');
+            return handler.reject(err); // Reject the original 401 error
           }
-        } catch (refreshException) {
+        } catch (refreshException, stackTrace) {
+          // Catch unexpected errors during _refreshToken() itself
           logger.e(
-            'Exception during token refresh process.',
+            'Exception during _refreshToken call.',
             error: refreshException,
+            stackTrace: stackTrace,
           );
-          _isRefreshing = false;
-          _clearRetryQueue(); // Clear queue on exception
-          // TODO: Possibly clear tokens here too depending on the error
-          return handler.reject(err); // Reject the original error
-        } finally {
-          _isRefreshing = false; // Ensure lock is always released
+          _isRefreshing = false; // Release lock
+          _clearRetryQueue();
+          // TODO: Possibly clear tokens here too depending on the error - IMPLEMENTED (in _refreshToken)
+          logger.d('Released token refresh lock (Exception).');
+          return handler.reject(err); // Reject the original 401 error
         }
+        // 'finally' block is less needed now as lock release is handled in each branch
       } else {
-        // Refresh already in progress, queue this request
+        // --- Refresh In Progress - Queue Request ---
+        // Lock is already held by another request doing the refresh
         logger.i(
-          'Token refresh in progress. Queuing request for ${requestOptions.path}',
+          'Token refresh already in progress. Queuing request for ${requestOptions.path}',
         );
+        // Add the failed request to the queue to be retried later IF refresh succeeds
         _retryQueue.add(requestOptions);
-        // Don't resolve or reject yet, wait for refresh to complete
-        // Dio requires handler.next, handler.resolve, or handler.reject to be called.
-        // How to pause? This part is tricky with Dio interceptors directly.
-        // A common pattern involves a separate queue mechanism or potentially
-        // using dio's `httpClientAdapter` for more control, but that's complex.
-        // A simpler approach for now might be to just reject subsequent 401s while refreshing.
-        logger.w(
-          'Rejecting subsequent 401 for ${requestOptions.path} while refresh is in progress.',
-        );
-        return handler.reject(
-          err,
-        ); // Reject immediately if refresh already running
+        // We cannot pause the interceptor here easily. Rejecting the error tells the caller
+        // that this specific request failed, but doesn't prevent the ongoing refresh
+        // or the potential success/failure notification from that process.
+        // The original caller might need its own retry logic if this specific rejection occurs.
+        return handler.reject(err);
+        // --- End Queue Request ---
       }
+      // --- End Locking Mechanism ---
     }
 
-    return handler.next(err); // Forward other errors
+    // If not a 401 error or if it's an auth endpoint, forward the error
+    return handler.next(err);
   }
 
-  // --- Token Refresh Logic ---
+  // --- Token Refresh Logic (Refined) ---
   Future<AuthResponse?> _refreshToken() async {
     final refreshToken = await _tokenService.getRefreshToken();
     if (refreshToken == null) {
-      logger.w('No refresh token available.');
-      return null;
+      logger.w('No refresh token available for refresh attempt.');
+      return null; // Can't refresh without a token
     }
 
     try {
-      // Use a separate Dio instance for the refresh call to avoid interceptors loop
-      // We need to create this instance or get it via a separate provider.
-      // For simplicity here, let's assume we create it ad-hoc or use a pre-defined one.
-      final refreshDio = Dio(
-        BaseOptions(baseUrl: AppConfig.apiUrl),
-      ); // Basic instance
+      // Use the dedicated Dio instance for refreshing (no interceptors)
+      final refreshDio = _ref.read(dioRefreshProvider);
 
       logger.i('Calling refresh token endpoint: /api/v1/auth/refresh');
       final response = await refreshDio.post(
         '/api/v1/auth/refresh',
-        data: {
-          'token': refreshToken,
-        }, // Corresponds to RefreshTokenRequest in RN
+        data: {'token': refreshToken},
       );
 
-      if (response.statusCode == 200) {
+      // Check for successful status code (e.g., 200 OK)
+      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
         final authResponse = AuthResponse.fromJson(
           response.data as Map<String, dynamic>,
         );
-        await _tokenService.saveTokens(
-          authResponse.accessToken,
-          authResponse.refreshToken,
-        );
-        logger.i('New tokens obtained and saved.');
-        return authResponse;
+        // Optional: Validate received tokens are not empty
+        if (authResponse.accessToken.isNotEmpty &&
+            authResponse.refreshToken.isNotEmpty) {
+          await _tokenService.saveTokens(
+            authResponse.accessToken,
+            authResponse.refreshToken,
+          );
+          logger.i('Token refresh successful: New tokens obtained and saved.');
+          return authResponse;
+        } else {
+          logger.e(
+            'Refresh token endpoint returned success status but invalid token data.',
+          );
+          // Treat as failure, potentially clear tokens as response is unexpected
+          await _tokenService.clearTokens();
+          // TODO: Trigger global logout state via Riverpod provider - IMPLEMENTED
+          _ref.read(authStateProvider.notifier).logout();
+          return null;
+        }
       } else {
+        // Log unexpected success status code
         logger.e(
-          'Refresh token endpoint returned status ${response.statusCode}',
+          'Refresh token endpoint returned unexpected status: ${response.statusCode} or invalid data format.',
         );
+        // Treat as failure, potentially clear tokens
+        await _tokenService.clearTokens();
+        // TODO: Trigger global logout state via Riverpod provider - IMPLEMENTED
+        _ref.read(authStateProvider.notifier).logout();
         return null;
       }
-    } on DioException catch (e) {
-      logger.e('DioException during token refresh', error: e);
+    } on DioException catch (e, stackTrace) {
+      // Catch Dio errors specifically during refresh
+      logger.e(
+        'DioException during token refresh API call',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // If refresh token itself is rejected (401/403 usually), clear tokens & logout
       if (e.response?.statusCode == 401 ||
-          e.response?.statusCode == 400 ||
-          e.response?.statusCode == 500) {
-        // Or specific code from backend for invalid refresh token
-        logger.e('Refresh token invalid or expired. Clearing tokens.');
+          e.response?.statusCode == 403 ||
+          e.response?.statusCode == 400) {
+        logger.e(
+          'Refresh token seems invalid or expired (Status: ${e.response?.statusCode}). Clearing tokens and triggering logout.',
+        );
         await _tokenService.clearTokens();
-        // TODO: Trigger global logout state
+        // TODO: Trigger global logout state via Riverpod provider - IMPLEMENTED
+        _ref.read(authStateProvider.notifier).logout();
       }
-      return null;
-    } catch (e) {
-      logger.e('Unexpected error during token refresh', error: e);
-      return null;
+      // For other Dio errors (network, server error on refresh endpoint), just return null, maybe retry later?
+      return null; // Indicate refresh failed
+    } catch (e, stackTrace) {
+      // Catch non-Dio errors
+      logger.e(
+        'Unexpected error during token refresh logic',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return null; // Indicate refresh failed
     }
   }
 
-  // --- Retry Queue Logic (Simplified) ---
-  // A more robust implementation might use Completers or Streams
+  // --- Retry Queue Logic (Refined Comments) ---
+  // This simplified queue attempts retries but doesn't easily return results/errors
+  // back to the original callers of the queued requests. Callers might timeout or fail.
+  // A robust solution often uses Completers mapped to request IDs.
   void _processRetryQueue(String newAccessToken) async {
     logger.d('Processing ${_retryQueue.length} queued requests...');
-    while (_retryQueue.isNotEmpty) {
-      final requestOptions = _retryQueue.removeAt(0);
+    final queue = List<RequestOptions>.from(_retryQueue); // Copy queue
+    _retryQueue.clear(); // Clear original immediately
+
+    for (final requestOptions in queue) {
       requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
       try {
         logger.d('Retrying queued request for ${requestOptions.path}');
-        // Retry the request - Note: This doesn't return the response to the original caller easily here.
-        // This simplified queue just attempts the retry. A full implementation is complex.
-        await dio.request(
-          requestOptions.path,
-          options: Options(
-            method: requestOptions.method,
-            headers: requestOptions.headers,
-            data: requestOptions.data,
-            queryParameters: requestOptions.queryParameters,
-          ),
+        // Use fetch to retry with potentially modified options
+        await dio.fetch(requestOptions);
+        logger.i(
+          'Queued request successful after retry: ${requestOptions.path}',
         );
       } catch (e) {
         logger.e(
           'Failed to retry queued request for ${requestOptions.path}',
           error: e,
         );
+        // Errors for queued requests are logged but not propagated back to original caller easily.
       }
     }
+    logger.d('Finished processing retry queue.');
   }
 
   void _clearRetryQueue() {
-    logger.w('Clearing retry queue.');
-    _retryQueue.clear();
+    if (_retryQueue.isNotEmpty) {
+      logger.w('Clearing ${_retryQueue.length} requests from retry queue.');
+      _retryQueue.clear();
+    }
   }
 }
 
-// --- Example: Using the Dio Provider ---
+// --- Example Usage (remains the same) ---
 // final someServiceProvider = Provider((ref) {
 //   final dio = ref.watch(dioProvider);
 //   return SomeService(dio);
 // });
-
-// class SomeService {
-//   final Dio _dio;
-//   SomeService(this._dio);
-
-//   Future<void> fetchData() async {
-//     try {
-//       final response = await _dio.get('/some/endpoint');
-//       // ... process response ...
-//     } catch (e) {
-//       // Handle error
-//     }
-//   }
-// }
