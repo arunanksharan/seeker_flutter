@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:seeker/features/auth/application/auth_state.dart';
-import 'package:seeker/features/home/application/home_providers.dart'; // Import providers
+// Import providers
 // Removed JobCard import as it's not used for now
 // import 'package:seeker/features/home/presentation/widgets/job_card.dart';
 // Removed JobModels import as it's not used for now

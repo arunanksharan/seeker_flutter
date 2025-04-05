@@ -91,20 +91,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
     // Initialize controllers AFTER first build using listener
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      logger.d("ProfileScreen: Post frame callback triggered");
       _setupListener();
-      _initializeFormFields();
+      
+      // Force immediate data load
+      final profileData = ref.read(profileNotifierProvider).profileData;
+      logger.d("ProfileScreen: Initial profileData: $profileData");
+      _initializeFormFields(profileData: profileData);
+      
+      // Force edit mode for testing
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          logger.d("ProfileScreen: Forcing edit mode for testing");
+          ref.read(profileNotifierProvider.notifier).setEditMode(true);
+        }
+      });
     });
   }
 
   void _setupListener() {
+    logger.d("ProfileScreen: Setting up state listener");
     ref.listen<ProfileState>(profileNotifierProvider, (previous, next) {
-      final wasLoaded = previous?.dataLoaded ?? false;
-      if (!wasLoaded && next.dataLoaded) {
-        logger.d(
-          "ProfileScreen: Data loaded, initializing form fields via listener.",
-        );
+      logger.d("ProfileScreen: ProfileState changed");
+      logger.d("ProfileScreen: isLoading: ${next.isLoading}, dataLoaded: ${next.dataLoaded}");
+      
+      // Only update fields if data is loaded and not in edit mode
+      if (next.dataLoaded && !next.isLoading && !next.isEditing) {
+        logger.d("ProfileScreen: Updating form fields from listener");
         _initializeFormFields(profileData: next.profileData);
       }
+      
       // Handle save success/error messages via SnackBar
       if (previous?.isSaving == true && next.isSaving == false) {
         if (mounted) {
@@ -132,13 +148,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _initializeFormFields({Map<String, dynamic>? profileData}) {
     final data = profileData ?? ref.read(profileNotifierProvider).profileData;
     if (mounted) {
-      logger.d("ProfileScreen: Initializing/Updating form controllers.");
+      logger.d("ProfileScreen: Initializing/Updating form controllers with data: $data");
+      logger.d("ProfileScreen: Data has ${data.length} fields with keys: ${data.keys.toList()}");
+      
       for (var field in _formFields) {
         final key = field['key'] as String;
         final controller = _controllers[key];
         if (controller != null) {
           // Check if controller exists (skip gender)
-          controller.text = data[key]?.toString() ?? '';
+          final value = data[key]?.toString() ?? '';
+          logger.d("ProfileScreen: Setting field '$key' to value: '$value'");
+          controller.text = value;
+        } else if (field['type'] == 'gender') {
+          // For gender field, just log the value since it's handled by radio buttons
+          final value = data[key]?.toString() ?? '';
+          logger.d("ProfileScreen: Gender field value: '$value'");
         }
       }
     }
@@ -198,6 +222,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final profileData = state.profileData;
 
     final theme = Theme.of(context);
+    
+    logger.d("ProfileScreen: Building UI - isLoading: ${state.isLoading}, dataLoaded: ${state.dataLoaded}, isEditing: ${state.isEditing}");
 
     // Handle initial loading state
     if (state.isLoading && !state.dataLoaded) {
@@ -219,54 +245,91 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         title: Text(state.isEditing ? 'Edit Profile' : 'View Profile'),
         actions: [
           // Toggle Edit/Cancel Button
-          if (state.dataLoaded &&
-              state.errorMessage == null) // Show only if data loaded ok
+          if (state.dataLoaded) // Show only if data loaded ok
             TextButton(
-              onPressed:
-                  state.isSaving
-                      ? null
-                      : () => notifier.setEditMode(!state.isEditing),
-              child: Text(state.isEditing ? 'Cancel' : 'Edit'),
+              onPressed: state.isSaving 
+                  ? null 
+                  : () {
+                      logger.d("Edit/Cancel button pressed, current isEditing: ${state.isEditing}");
+                      notifier.setEditMode(!state.isEditing);
+                    },
+              child: Text(
+                state.isEditing ? 'Cancel' : 'Edit',
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           const SizedBox(width: 8),
         ],
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: AbsorbPointer(
-          // Disable input fields if not in edit mode
-          absorbing:
-              !state.isEditing &&
-              !state.isLoading, // Absorb taps when not editing/loading
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.stretch, // Stretch labels/fields
-                children: [
-                  // Dynamically build form fields
-                  ..._formFields
-                      .map(
-                        (field) => _buildFormField(
-                          field,
-                          profileData,
-                          state.isEditing,
-                          notifier,
-                        ),
-                      )
-                      .expand((widget) => [widget, const SizedBox(height: 24)]),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Force a refresh of the profile data
+          ref.invalidate(profileProvider);
+          await ref.read(profileProvider.future);
+          _initializeFormFields();
+        },
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Stack(
+            children: [
+              // Main form content
+              SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(), // Always allow scrolling
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Debug info for development
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      color: Colors.amber.withOpacity(0.2),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Debug - isEditing: ${state.isEditing}"),
+                          Text("Debug - isLoading: ${state.isLoading}"),
+                          Text("Debug - isSaving: ${state.isSaving}"),
+                          Text("Debug - dataLoaded: ${state.dataLoaded}"),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Form with fields
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Dynamically build form fields
+                          ..._formFields
+                              .map(
+                                (field) => _buildFormField(
+                                  field,
+                                  profileData,
+                                  state.isEditing,
+                                  notifier,
+                                ),
+                              )
+                              .expand((widget) => [widget, const SizedBox(height: 24)]),
+                        ],
+                      ),
+                    ),
 
-                  const SizedBox(height: 16), // Space before save button
-                  // Save Button (visible only in edit mode)
-                  if (state.isEditing)
-                    Center(
-                      child: ElevatedButton(
-                        onPressed: state.isSaving ? null : _saveForm,
-                        child:
-                            state.isSaving
-                                ? const SizedBox(
+                    const SizedBox(height: 16), // Space before save button
+                    
+                    // Save Button (visible only in edit mode)
+                    if (state.isEditing)
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: state.isSaving ? null : _saveForm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                          ),
+                          child: state.isSaving
+                              ? const SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
@@ -274,32 +337,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                                : const Text('Save Changes'),
-                      ),
-                    ),
-
-                  // Display Save Error Message Inline
-                  if (state.errorMessage != null &&
-                      !state.isLoading &&
-                      !state.isSaving)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16.0),
-                      child: Center(
-                        child: Text(
-                          state.errorMessage!,
-                          style: TextStyle(color: theme.colorScheme.error),
-                          textAlign: TextAlign.center,
+                              : const Text('Save Changes'),
                         ),
                       ),
-                    ),
 
-                  const SizedBox(height: 24), // Bottom padding
-                ],
+                    // Display Save Error Message Inline
+                    if (state.errorMessage != null &&
+                        !state.isLoading &&
+                        !state.isSaving)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16.0),
+                        child: Center(
+                          child: Text(
+                            state.errorMessage!,
+                            style: TextStyle(color: theme.colorScheme.error),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 24), // Bottom padding
+                  ],
+                ),
               ),
-            ),
+              
+              // Overlay loading indicator when saving
+              if (state.isSaving)
+                Container(
+                  color: Colors.black.withOpacity(0.1),
+                  child: const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
+      floatingActionButton: state.isEditing 
+          ? null 
+          : FloatingActionButton(
+              onPressed: () {
+                logger.d("Edit FAB pressed");
+                notifier.setEditMode(true);
+              },
+              child: const Icon(Icons.edit),
+            ),
     );
   }
 
@@ -323,6 +405,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final controller = _controllers[key];
     final currentValue = currentData[key];
 
+    logger.d("Building field '$key' with isEditing=$isEditing, currentValue=$currentValue");
+    
+    // IMPORTANT: Set the controller text value directly here to ensure it's always up to date
+    if (controller != null && currentValue != null) {
+      // Only update if different to avoid cursor jumps
+      if (controller.text != currentValue.toString()) {
+        controller.text = currentValue.toString();
+        logger.d("Updated controller for '$key' to: '${controller.text}'");
+      }
+    }
+
     // --- Build based on type ---
 
     if (type == 'gender') {
@@ -335,21 +428,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               context,
             ).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
           ),
-          IgnorePointer(
-            // Use IgnorePointer to disable radio buttons in view mode
-            ignoring: !isEditing,
-            child: Row(
-              children: [
-                _buildGenderRadio(
-                  'Male',
-                  currentValue as String?,
-                  notifier,
-                  isEditing,
-                ),
-                _buildGenderRadio('Female', currentValue, notifier, isEditing),
-                _buildGenderRadio('Other', currentValue, notifier, isEditing),
-              ],
-            ),
+          Row(
+            children: [
+              _buildGenderRadio(
+                'Male',
+                currentValue as String?,
+                notifier,
+                isEditing,
+              ),
+              _buildGenderRadio('Female', currentValue, notifier, isEditing),
+              _buildGenderRadio('Other', currentValue, notifier, isEditing),
+            ],
           ),
         ],
       );
@@ -376,11 +465,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Icons.calendar_today,
                 color: isEditing ? Theme.of(context).primaryColor : Colors.grey,
               ),
+              border: const OutlineInputBorder(),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Theme.of(context).primaryColor),
+              ),
+              disabledBorder: const OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey),
+              ),
             ),
-            onTap:
-                isEditing
-                    ? () => _selectDate(context)
-                    : null, // Only allow tap in edit mode
+            onTap: isEditing ? () => _selectDate(context) : null,
             validator:
                 (value) =>
                     (isRequired && (value == null || value.isEmpty))
@@ -407,16 +500,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           enabled: isEditing, // Enable/disable based on edit mode
           keyboardType: keyboard,
           maxLines: maxLines,
-          decoration: InputDecoration(hintText: hint),
-          style: Theme.of(context).textTheme.bodyLarge,
+          decoration: InputDecoration(
+            hintText: hint,
+            border: const OutlineInputBorder(),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Theme.of(context).primaryColor),
+            ),
+            disabledBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey),
+            ),
+            filled: true,
+            fillColor: isEditing ? Colors.white : Colors.grey[100],
+          ),
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: isEditing ? Colors.black : Colors.grey[700],
+          ),
           validator:
               (value) =>
                   (isRequired && (value == null || value.trim().isEmpty))
                       ? 'Please enter $label'
                       : null,
-          onChanged:
-              (value) =>
-                  notifier.updateField(key, value), // Update state on change
+          onChanged: (value) {
+            logger.d("Field '$key' changed to: '$value'");
+            notifier.updateField(key, value); // Update state on change
+          },
         ),
       ],
     );
@@ -435,14 +542,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         value: title,
         groupValue: groupValue,
         // Only allow changes if in edit mode
-        onChanged:
-            isEditing
-                ? (String? value) {
-                  if (value != null) {
-                    notifier.updateField('gender', value);
-                  }
-                }
-                : null,
+        onChanged: (String? value) {
+          logger.d("Gender radio changed to: $value, isEditing: $isEditing");
+          if (isEditing && value != null) {
+            notifier.updateField('gender', value);
+          }
+        },
         contentPadding: EdgeInsets.zero,
         visualDensity: VisualDensity.compact,
       ),

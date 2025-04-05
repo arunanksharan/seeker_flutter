@@ -38,8 +38,45 @@ class ProfileService {
         return null;
       }
 
+      // Log the raw response data for debugging
+      logger.d('Profile raw data: ${response.data}');
+
+      // Check if current_profile exists in the response
+      if (response.data!.containsKey('current_profile')) {
+        logger.d(
+          'current_profile exists in response: ${response.data!['current_profile']}',
+        );
+        logger.d(
+          'current_profile type: ${response.data!['current_profile'].runtimeType}',
+        );
+      } else {
+        logger.w('current_profile missing from API response');
+      }
+
+      // Check for personal_details
+      if (response.data!.containsKey('personal_details')) {
+        logger.d(
+          'personal_details exists in response: ${response.data!['personal_details']}',
+        );
+      } else {
+        logger.w('personal_details missing from API response');
+      }
+
       logger.d('Profile retrieved successfully.');
-      return SeekerProfileApiResponse.fromJson(response.data!);
+      final profileResponse = SeekerProfileApiResponse.fromJson(response.data!);
+
+      // Log the parsed response object
+      logger.d(
+        'Parsed profile response - id: ${profileResponse.id}, seekerId: ${profileResponse.seekerId}',
+      );
+      logger.d('Has currentProfile: ${profileResponse.currentProfile != null}');
+      if (profileResponse.currentProfile != null) {
+        logger.d(
+          'currentProfile entries: ${profileResponse.currentProfile!.entries.toList()}',
+        );
+      }
+
+      return profileResponse;
     } on DioException catch (e, stackTrace) {
       logger.e(
         'DioException getting profile',

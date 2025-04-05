@@ -39,6 +39,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     // Ensure we only load once unless invalidated
     if (state.dataLoadAttempted) return;
 
+    logger.d("ProfileNotifier: Starting _loadInitialData()");
     state = state.copyWith(
       isLoading: true,
       errorMessage: null,
@@ -49,15 +50,43 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       final profileApiResponse = await _ref.read(profileProvider.future);
 
       if (profileApiResponse != null) {
-        logger.d("ProfileNotifier: Profile API response received.");
-        Map<String, dynamic> initialData = Map<String, dynamic>.from(
-          profileApiResponse.currentProfile ?? {},
+        logger.d(
+          "ProfileNotifier: Profile API response received: ${profileApiResponse.id}, ${profileApiResponse.seekerId}, ${profileApiResponse.currentProfile}",
         );
+
+        // Debug the API response to see what's coming from the backend
+        logger.d("ProfileNotifier: API response ID: ${profileApiResponse.id}");
+        logger.d(
+          "ProfileNotifier: API response seekerId: ${profileApiResponse.seekerId}",
+        );
+        logger.d(
+          "ProfileNotifier: Has personalDetails: ${profileApiResponse.personalDetails != null}",
+        );
+        logger.d(
+          "ProfileNotifier: Has contactDetails: ${profileApiResponse.contactDetails != null}",
+        );
+        logger.d(
+          "ProfileNotifier: Has currentProfile: ${profileApiResponse.currentProfile != null}",
+        );
+        if (profileApiResponse.currentProfile != null) {
+          logger.d(
+            "ProfileNotifier: currentProfile keys: ${profileApiResponse.currentProfile!.keys.toList()}",
+          );
+        }
+
+        // Create initialData map - IMPORTANT FIX: Check if currentProfile is null before using it
+        Map<String, dynamic> initialData =
+            profileApiResponse.currentProfile != null
+                ? Map<String, dynamic>.from(profileApiResponse.currentProfile!)
+                : <String, dynamic>{};
+
         logger.d("Initial data from current_profile: $initialData");
 
         // --- Merge/Default values from nested structures if needed ---
         final pd = profileApiResponse.personalDetails;
         if (pd != null) {
+          logger.d("ProfileNotifier: Adding personalDetails to initialData");
+          // Only add if not already present in currentProfile
           initialData.putIfAbsent('name', () => pd.name);
           initialData.putIfAbsent('father_name', () => pd.fatherName);
           initialData.putIfAbsent('mother_name', () => pd.motherName);
@@ -109,8 +138,15 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
             () => jp.maxSalaryExpectation,
           );
         }
+        final languages = profileApiResponse.languageProficiencies;
+        if (languages != null && languages.isNotEmpty) {
+          initialData.putIfAbsent(
+            'languages_spoken',
+            () => languages.map((l) => l.language).join(', '),
+          );
+        }
 
-        // Update state with merged data
+        // Update state with loaded data
         state = state.copyWith(
           isLoading: false,
           errorMessage: null,
@@ -119,51 +155,70 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
           profileData: initialData,
           dataLoaded: true,
         );
-        logger.i(
-          "ProfileNotifier: Initial data loaded successfully. ID: ${profileApiResponse.id}",
+        logger.d(
+          "ProfileNotifier: Data loaded successfully with ${initialData.length} fields.",
         );
       } else {
-        // Handle null response (could be first-time user)
+        // Handle case where profile doesn't exist yet
         state = state.copyWith(
           isLoading: false,
-          errorMessage: null, // Don't show error for new users
-          profileData: {}, // Empty map
-          dataLoaded: true, // Mark as loaded even if empty
+          errorMessage: null, // No error, just empty profile
+          profileData: <String, dynamic>{},
+          dataLoaded: true, // Mark as loaded, just empty
         );
-        logger.d("ProfileNotifier: No profile data found. New user?");
+        logger.d("ProfileNotifier: No profile data exists yet.");
       }
     } catch (e, stackTrace) {
       logger.e(
-        "Error loading profile data",
+        "ProfileNotifier: Error loading profile data",
         error: e,
         stackTrace: stackTrace,
       );
       state = state.copyWith(
         isLoading: false,
         errorMessage: "Failed to load profile: ${e.toString()}",
-        dataLoaded: false, // Mark as not loaded on error
+        dataLoaded: false,
       );
     }
   }
 
   // Toggle edit mode
   void setEditMode(bool isEditing) {
-    if (isEditing == state.isEditing) return; // No change needed
+    if (isEditing == state.isEditing) {
+      logger.d(
+        "ProfileNotifier: Edit mode already set to $isEditing, no change needed",
+      );
+      return; // No change needed
+    }
 
-    state = state.copyWith(
+    logger.d(
+      "ProfileNotifier: Changing edit mode from ${state.isEditing} to $isEditing",
+    );
+
+    // Create a new state with updated isEditing flag
+    final newState = state.copyWith(
       isEditing: isEditing,
       // Clear error message when entering edit mode
       errorMessage: isEditing ? null : state.errorMessage,
     );
-    logger.d("ProfileNotifier: Edit mode set to $isEditing");
+
+    // Update the state
+    state = newState;
+
+    logger.d(
+      "ProfileNotifier: Edit mode set to $isEditing, isEditing in new state: ${newState.isEditing}",
+    );
   }
 
   // Update a single field in the profile data
   void updateField(String key, dynamic value) {
+    logger.d("ProfileNotifier: Updating field '$key' to '$value'");
     final updatedData = Map<String, dynamic>.from(state.profileData);
     updatedData[key] = value;
     state = state.copyWith(profileData: updatedData);
-    logger.d("ProfileNotifier: Updated field '$key' to '$value'");
+    logger.d(
+      "ProfileNotifier: Field updated, profileData now has keys: ${updatedData.keys.toList()}",
+    );
   }
 
   // Save profile changes
@@ -212,7 +267,8 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       final jobPreferences = JobPreferences(
         preferredJobLocations: profileMap['preferred_job_location'] as String?,
         currentLocation: profileMap['current_location'] as String?,
-        totalExperienceYears: tryParseNum(profileMap['total_experience_years'])?.toString(),
+        totalExperienceYears:
+            tryParseNum(profileMap['total_experience_years'])?.toString(),
         currentMonthlySalary:
             profileMap['current_monthly_salary']
                 ?.toString(), // API might expect string or num
@@ -256,7 +312,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         currentProfile: profileMap, // Send the modified flat map too
       );
       // logger.d("Mapped request data: ${requestData.toJson()}"); // Careful logging sensitive data
-      // --- ** End Mapping Step ** ---
+      // --- ** End Mapping Step **-
 
       final profileService = _ref.read(profileServiceProvider);
       final savedProfile = await profileService.updateProfile(
@@ -326,7 +382,6 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     return null;
   }
 }
-
 
 // Remember to run build_runner if ProfileState was modified:
 // flutter pub run build_runner build --delete-conflicting-outputs

@@ -924,7 +924,11 @@ class SeekerProfileApiResponse {
       assessmentScore: json['assessment_score'] as num?,
       reviews: parseList('reviews', Review.fromJson),
       callMetadataHistory: parseListOfMaps('call_metadata_history'),
-      currentProfile: json['current_profile'] as Map<String, dynamic>?,
+      currentProfile: json['current_profile'] != null
+          ? (json['current_profile'] is Map
+              ? json['current_profile'] as Map<String, dynamic>
+              : null)
+          : null,
     );
   }
   Map<String, dynamic> toJson() => {
