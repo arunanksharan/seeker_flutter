@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 mixin _$ProfileState {
 
  bool get isLoading; bool get isEditing; bool get isSaving; String? get errorMessage; Map<String, dynamic> get profileData; String? get id;// Changed from profileId
- String? get seekerId; bool get dataLoaded;
+ String? get seekerId; bool get dataLoaded; bool get dataLoadAttempted;
 /// Create a copy of ProfileState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,16 +27,16 @@ $ProfileStateCopyWith<ProfileState> get copyWith => _$ProfileStateCopyWithImpl<P
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProfileState&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isEditing, isEditing) || other.isEditing == isEditing)&&(identical(other.isSaving, isSaving) || other.isSaving == isSaving)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&const DeepCollectionEquality().equals(other.profileData, profileData)&&(identical(other.id, id) || other.id == id)&&(identical(other.seekerId, seekerId) || other.seekerId == seekerId)&&(identical(other.dataLoaded, dataLoaded) || other.dataLoaded == dataLoaded));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProfileState&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isEditing, isEditing) || other.isEditing == isEditing)&&(identical(other.isSaving, isSaving) || other.isSaving == isSaving)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&const DeepCollectionEquality().equals(other.profileData, profileData)&&(identical(other.id, id) || other.id == id)&&(identical(other.seekerId, seekerId) || other.seekerId == seekerId)&&(identical(other.dataLoaded, dataLoaded) || other.dataLoaded == dataLoaded)&&(identical(other.dataLoadAttempted, dataLoadAttempted) || other.dataLoadAttempted == dataLoadAttempted));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,isLoading,isEditing,isSaving,errorMessage,const DeepCollectionEquality().hash(profileData),id,seekerId,dataLoaded);
+int get hashCode => Object.hash(runtimeType,isLoading,isEditing,isSaving,errorMessage,const DeepCollectionEquality().hash(profileData),id,seekerId,dataLoaded,dataLoadAttempted);
 
 @override
 String toString() {
-  return 'ProfileState(isLoading: $isLoading, isEditing: $isEditing, isSaving: $isSaving, errorMessage: $errorMessage, profileData: $profileData, id: $id, seekerId: $seekerId, dataLoaded: $dataLoaded)';
+  return 'ProfileState(isLoading: $isLoading, isEditing: $isEditing, isSaving: $isSaving, errorMessage: $errorMessage, profileData: $profileData, id: $id, seekerId: $seekerId, dataLoaded: $dataLoaded, dataLoadAttempted: $dataLoadAttempted)';
 }
 
 
@@ -47,7 +47,7 @@ abstract mixin class $ProfileStateCopyWith<$Res>  {
   factory $ProfileStateCopyWith(ProfileState value, $Res Function(ProfileState) _then) = _$ProfileStateCopyWithImpl;
 @useResult
 $Res call({
- bool isLoading, bool isEditing, bool isSaving, String? errorMessage, Map<String, dynamic> profileData, String? id, String? seekerId, bool dataLoaded
+ bool isLoading, bool isEditing, bool isSaving, String? errorMessage, Map<String, dynamic> profileData, String? id, String? seekerId, bool dataLoaded, bool dataLoadAttempted
 });
 
 
@@ -64,7 +64,7 @@ class _$ProfileStateCopyWithImpl<$Res>
 
 /// Create a copy of ProfileState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? isLoading = null,Object? isEditing = null,Object? isSaving = null,Object? errorMessage = freezed,Object? profileData = null,Object? id = freezed,Object? seekerId = freezed,Object? dataLoaded = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? isLoading = null,Object? isEditing = null,Object? isSaving = null,Object? errorMessage = freezed,Object? profileData = null,Object? id = freezed,Object? seekerId = freezed,Object? dataLoaded = null,Object? dataLoadAttempted = null,}) {
   return _then(_self.copyWith(
 isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,isEditing: null == isEditing ? _self.isEditing : isEditing // ignore: cast_nullable_to_non_nullable
@@ -74,6 +74,7 @@ as String?,profileData: null == profileData ? _self.profileData : profileData //
 as Map<String, dynamic>,id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String?,seekerId: freezed == seekerId ? _self.seekerId : seekerId // ignore: cast_nullable_to_non_nullable
 as String?,dataLoaded: null == dataLoaded ? _self.dataLoaded : dataLoaded // ignore: cast_nullable_to_non_nullable
+as bool,dataLoadAttempted: null == dataLoadAttempted ? _self.dataLoadAttempted : dataLoadAttempted // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -85,7 +86,7 @@ as bool,
 
 
 class _ProfileState implements ProfileState {
-  const _ProfileState({this.isLoading = true, this.isEditing = false, this.isSaving = false, this.errorMessage, final  Map<String, dynamic> profileData = const {}, this.id, this.seekerId, this.dataLoaded = false}): _profileData = profileData;
+  const _ProfileState({this.isLoading = true, this.isEditing = false, this.isSaving = false, this.errorMessage, final  Map<String, dynamic> profileData = const <String, dynamic>{}, this.id, this.seekerId, this.dataLoaded = false, this.dataLoadAttempted = false}): _profileData = profileData;
   
 
 @override@JsonKey() final  bool isLoading;
@@ -103,6 +104,7 @@ class _ProfileState implements ProfileState {
 // Changed from profileId
 @override final  String? seekerId;
 @override@JsonKey() final  bool dataLoaded;
+@override@JsonKey() final  bool dataLoadAttempted;
 
 /// Create a copy of ProfileState
 /// with the given fields replaced by the non-null parameter values.
@@ -114,16 +116,16 @@ _$ProfileStateCopyWith<_ProfileState> get copyWith => __$ProfileStateCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProfileState&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isEditing, isEditing) || other.isEditing == isEditing)&&(identical(other.isSaving, isSaving) || other.isSaving == isSaving)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&const DeepCollectionEquality().equals(other._profileData, _profileData)&&(identical(other.id, id) || other.id == id)&&(identical(other.seekerId, seekerId) || other.seekerId == seekerId)&&(identical(other.dataLoaded, dataLoaded) || other.dataLoaded == dataLoaded));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProfileState&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isEditing, isEditing) || other.isEditing == isEditing)&&(identical(other.isSaving, isSaving) || other.isSaving == isSaving)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&const DeepCollectionEquality().equals(other._profileData, _profileData)&&(identical(other.id, id) || other.id == id)&&(identical(other.seekerId, seekerId) || other.seekerId == seekerId)&&(identical(other.dataLoaded, dataLoaded) || other.dataLoaded == dataLoaded)&&(identical(other.dataLoadAttempted, dataLoadAttempted) || other.dataLoadAttempted == dataLoadAttempted));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,isLoading,isEditing,isSaving,errorMessage,const DeepCollectionEquality().hash(_profileData),id,seekerId,dataLoaded);
+int get hashCode => Object.hash(runtimeType,isLoading,isEditing,isSaving,errorMessage,const DeepCollectionEquality().hash(_profileData),id,seekerId,dataLoaded,dataLoadAttempted);
 
 @override
 String toString() {
-  return 'ProfileState(isLoading: $isLoading, isEditing: $isEditing, isSaving: $isSaving, errorMessage: $errorMessage, profileData: $profileData, id: $id, seekerId: $seekerId, dataLoaded: $dataLoaded)';
+  return 'ProfileState(isLoading: $isLoading, isEditing: $isEditing, isSaving: $isSaving, errorMessage: $errorMessage, profileData: $profileData, id: $id, seekerId: $seekerId, dataLoaded: $dataLoaded, dataLoadAttempted: $dataLoadAttempted)';
 }
 
 
@@ -134,7 +136,7 @@ abstract mixin class _$ProfileStateCopyWith<$Res> implements $ProfileStateCopyWi
   factory _$ProfileStateCopyWith(_ProfileState value, $Res Function(_ProfileState) _then) = __$ProfileStateCopyWithImpl;
 @override @useResult
 $Res call({
- bool isLoading, bool isEditing, bool isSaving, String? errorMessage, Map<String, dynamic> profileData, String? id, String? seekerId, bool dataLoaded
+ bool isLoading, bool isEditing, bool isSaving, String? errorMessage, Map<String, dynamic> profileData, String? id, String? seekerId, bool dataLoaded, bool dataLoadAttempted
 });
 
 
@@ -151,7 +153,7 @@ class __$ProfileStateCopyWithImpl<$Res>
 
 /// Create a copy of ProfileState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? isLoading = null,Object? isEditing = null,Object? isSaving = null,Object? errorMessage = freezed,Object? profileData = null,Object? id = freezed,Object? seekerId = freezed,Object? dataLoaded = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? isLoading = null,Object? isEditing = null,Object? isSaving = null,Object? errorMessage = freezed,Object? profileData = null,Object? id = freezed,Object? seekerId = freezed,Object? dataLoaded = null,Object? dataLoadAttempted = null,}) {
   return _then(_ProfileState(
 isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,isEditing: null == isEditing ? _self.isEditing : isEditing // ignore: cast_nullable_to_non_nullable
@@ -161,6 +163,7 @@ as String?,profileData: null == profileData ? _self._profileData : profileData /
 as Map<String, dynamic>,id: freezed == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String?,seekerId: freezed == seekerId ? _self.seekerId : seekerId // ignore: cast_nullable_to_non_nullable
 as String?,dataLoaded: null == dataLoaded ? _self.dataLoaded : dataLoaded // ignore: cast_nullable_to_non_nullable
+as bool,dataLoadAttempted: null == dataLoadAttempted ? _self.dataLoadAttempted : dataLoadAttempted // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

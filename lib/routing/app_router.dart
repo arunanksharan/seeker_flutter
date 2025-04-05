@@ -112,7 +112,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       // If user is unauthenticated
       if (authStatus == AuthStatus.unauthenticated) {
         // If they are on splash or auth screen, allow them to stay
-        if (isSplashRoute || isAuthRoute) {
+        if (isSplashRoute) {
+          return AppRoutes.auth;
+        }
+        if (isAuthRoute) {
           logger.d('Redirect: Unauthenticated on splash/auth -> Allowed.');
           return null; // No redirect needed
         }

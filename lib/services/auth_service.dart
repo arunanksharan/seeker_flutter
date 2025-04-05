@@ -26,16 +26,31 @@ class AuthService {
       final formattedNumber = phoneNumber;
 
       logger.i('Requesting Firebase OTP for: $formattedNumber');
+
+      // Add reCAPTCHA verification for web/android
       await _firebaseAuth.verifyPhoneNumber(
         phoneNumber: formattedNumber,
+        timeout: const Duration(seconds: 60),
         verificationCompleted: (fb_auth.PhoneAuthCredential credential) async {
           logger.i('Firebase verification completed automatically.');
           // Optional: Handle auto-retrieval if desired
         },
         verificationFailed: (fb_auth.FirebaseAuthException e) {
           logger.e('Firebase verification failed', error: e);
-          // Map Firebase exception to a custom one if needed, or let it propagate
-          if (!completer.isCompleted) completer.completeError(e);
+
+          // Add better error handling for common issues
+          String errorMessage = 'Phone verification failed';
+          if (e.code == 'missing-client-identifier') {
+            errorMessage = 'App verification failed. Please try again later.';
+          } else if (e.code == 'invalid-phone-number') {
+            errorMessage = 'The phone number format is invalid.';
+          } else if (e.code == 'too-many-requests') {
+            errorMessage = 'Too many requests. Please try again later.';
+          }
+
+          // Map Firebase exception to a custom one if needed
+          if (!completer.isCompleted)
+            completer.completeError(Exception(errorMessage));
         },
         codeSent: (String verId, int? resendToken) {
           logger.i('Firebase code sent. Verification ID: $verId');
@@ -48,23 +63,25 @@ class AuthService {
           logger.w(
             'Firebase auto-retrieval timed out. Verification ID: $verId',
           );
+          // Only complete if not already completed by codeSent
+          if (!completer.isCompleted && verificationId == null) {
+            verificationId = verId;
+            completer.complete(verificationId);
+          }
         },
-        timeout: const Duration(seconds: 60),
+        // Add forceResendingToken if you implement resend functionality
       );
 
-      return completer.future; // Return the future from the completer
-    } catch (e, stackTrace) {
-      logger.e(
-        'Error initiating phone verification',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      // Wrap in a custom exception type?
-      throw UnexpectedErrorException(
-        'Failed to initiate phone verification: $e',
-        stackTrace,
-      );
+      return await completer.future;
+    } catch (e) {
+      logger.e('Error in requestOtp', error: e);
+      rethrow;
     }
+  }
+
+  // Alias for requestOtp to match the method name used in login_screen.dart
+  Future<String?> requestFirebaseOTP(String phoneNumber) {
+    return requestOtp(phoneNumber);
   }
 
   // 2. Verify Firebase OTP
@@ -159,7 +176,7 @@ class AuthService {
         data: {}, // Empty body
       );
 
-      logger.i('Backend token exchange successful.');
+      logger.i('Backend token exchange successful. $response');
       // Add validation for response data structure if needed before parsing
       if (response.data is Map<String, dynamic>) {
         final authResponse = AuthResponse.fromJson(

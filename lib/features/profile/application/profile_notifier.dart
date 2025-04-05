@@ -11,16 +11,17 @@ part 'profile_notifier.freezed.dart'; // Link to generated file
 
 // --- State Definition ---
 @freezed
-class ProfileState with _$ProfileState {
+abstract class ProfileState with _$ProfileState {
   const factory ProfileState({
     @Default(true) bool isLoading,
     @Default(false) bool isEditing,
     @Default(false) bool isSaving,
     String? errorMessage,
-    @Default({}) Map<String, dynamic> profileData,
+    @Default(<String, dynamic>{}) Map<String, dynamic> profileData,
     String? id, // Changed from profileId
     String? seekerId,
     @Default(false) bool dataLoaded,
+    @Default(false) bool dataLoadAttempted,
   }) = _ProfileState;
 }
 
@@ -108,103 +109,73 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
             () => jp.maxSalaryExpectation,
           );
         }
-        final languages = profileApiResponse.languageProficiencies;
-        if (languages != null && languages.isNotEmpty) {
-          initialData.putIfAbsent(
-            'languages_spoken',
-            () => languages.map((l) => l.language).join(', '),
-          );
-        }
-        initialData.removeWhere((key, value) => value == null);
-        logger.d("Final initial data after merge: $initialData");
 
+        // Update state with merged data
         state = state.copyWith(
-          profileData: initialData,
-          id: profileApiResponse.id, // Use 'id' here
+          isLoading: false,
+          errorMessage: null,
+          id: profileApiResponse.id,
           seekerId: profileApiResponse.seekerId,
-          isLoading: false,
+          profileData: initialData,
           dataLoaded: true,
-          errorMessage: null,
-        );
-        logger.i("ProfileNotifier: State initialized successfully.");
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          dataLoaded: true,
-          errorMessage: null,
-          profileData: {},
         );
         logger.i(
-          "ProfileNotifier: No existing profile found, initializing empty state.",
+          "ProfileNotifier: Initial data loaded successfully. ID: ${profileApiResponse.id}",
         );
+      } else {
+        // Handle null response (could be first-time user)
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: null, // Don't show error for new users
+          profileData: {}, // Empty map
+          dataLoaded: true, // Mark as loaded even if empty
+        );
+        logger.d("ProfileNotifier: No profile data found. New user?");
       }
     } catch (e, stackTrace) {
       logger.e(
-        "ProfileNotifier: Error loading initial profile data",
+        "Error loading profile data",
         error: e,
         stackTrace: stackTrace,
       );
       state = state.copyWith(
         isLoading: false,
-        dataLoaded: false,
-        errorMessage: "Failed to load profile data: $e",
+        errorMessage: "Failed to load profile: ${e.toString()}",
+        dataLoaded: false, // Mark as not loaded on error
       );
     }
   }
 
-  // Toggle between view and edit mode
+  // Toggle edit mode
   void setEditMode(bool isEditing) {
-    state = state.copyWith(isEditing: isEditing, errorMessage: null);
-    if (!isEditing && state.dataLoaded) {
-      // If cancelling edit, reload initial data to discard changes made in the map
-      logger.i("Edit cancelled, reloading initial data for form.");
-      // Re-trigger the load to reset the map to the last fetched state
-      // Setting dataLoadAttempted back to false ensures reload happens
-      state = state.copyWith(dataLoadAttempted: false);
-      _loadInitialData();
-    }
-  }
+    if (isEditing == state.isEditing) return; // No change needed
 
-  // Update a specific field in the local state map during editing
-  void updateField(String key, dynamic value) {
-    if (!state.isEditing) return;
-    logger.d("Updating field: $key = $value");
     state = state.copyWith(
-      profileData: {...state.profileData, key: value},
-      errorMessage: null,
+      isEditing: isEditing,
+      // Clear error message when entering edit mode
+      errorMessage: isEditing ? null : state.errorMessage,
     );
+    logger.d("ProfileNotifier: Edit mode set to $isEditing");
   }
 
-  // Save the profile data (Create or Update) - WITH FULL MAPPING
-  Future<bool> saveProfile() async {
-    if (!state.dataLoaded && !state.isLoading) {
-      state = state.copyWith(
-        errorMessage: "Cannot save, profile data not loaded.",
-      );
-      return false;
-    }
-    if (state.isSaving) {
-      logger.w("SaveProfile called while already saving.");
-      return false;
-    }
+  // Update a single field in the profile data
+  void updateField(String key, dynamic value) {
+    final updatedData = Map<String, dynamic>.from(state.profileData);
+    updatedData[key] = value;
+    state = state.copyWith(profileData: updatedData);
+    logger.d("ProfileNotifier: Updated field '$key' to '$value'");
+  }
 
+  // Save profile changes
+  Future<bool> saveProfile() async {
     state = state.copyWith(isSaving: true, errorMessage: null);
-    final profileMap = state.profileData;
-    // Determine if creating new (no id) or updating existing
-    final isUpdate = state.id != null && state.id!.isNotEmpty;
-    logger.i("Attempting to save profile. Is update: $isUpdate");
+    logger.d("ProfileNotifier: Saving profile...");
 
     try {
-      // --- ** MAPPING: Flat Map -> Nested Request Object ** ---
-      logger.d("Mapping flat profile data to nested request object...");
+      final profileMap = Map<String, dynamic>.from(state.profileData);
+      final isUpdate = state.id != null;
 
-      // Helper function to safely parse string to num (int/double)
-      num? tryParseNum(dynamic value) {
-        if (value is num) return value;
-        if (value is String) return num.tryParse(value);
-        return null;
-      }
-
+      // --- ** Begin Mapping Step ** ---
       // 1. Map PersonalDetails
       final personalDetails = PersonalDetails(
         name: profileMap['name'] as String?,
@@ -212,43 +183,36 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         motherName: profileMap['mother_name'] as String?,
         gender: profileMap['gender'] as String?,
         dob: profileMap['dob'] as String?,
-        // Map other fields like guardianName, profilePictureUrl if they are in profileMap
       );
 
-      // 2. Map ContactDetails
+      // 2. Map ContactDetails with nested Address
       final contactDetails = ContactDetails(
         primaryMobile: profileMap['primary_mobile'] as String?,
         email: profileMap['email'] as String?,
+        // Map addresses if needed
         currentAddress: Address(
           street: profileMap['hometown_and_locality'] as String?,
+          // Add other address fields if needed
         ),
-        // Map permanentAddress if needed
+        // permanentAddress can be added similarly if needed
       );
 
-      // 3. Map ITIDetails (assuming one entry)
-      final itiDetails =
-          (profileMap.containsKey('institute_name') ||
-                  profileMap.containsKey('trade') ||
-                  profileMap.containsKey('state_registration_number'))
-              ? [
-                ITIDetail(
-                  instituteName: profileMap['institute_name'] as String?,
-                  trade: profileMap['trade'] as String?,
-                  trainingDuration: profileMap['training_duration'] as String?,
-                  rollNumber:
-                      profileMap['state_registration_number'] as String?,
-                  // Map passingYear, dates etc. if present in profileMap
-                ),
-              ]
-              : null;
+      // 3. Map ITIDetails
+      final itiDetails = [
+        ITIDetail(
+          instituteName: profileMap['institute_name'] as String?,
+          trade: profileMap['trade'] as String?,
+          trainingDuration: profileMap['training_duration'] as String?,
+          rollNumber: profileMap['state_registration_number'] as String?,
+          // Add other ITI fields if needed
+        ),
+      ];
 
       // 4. Map JobPreferences
       final jobPreferences = JobPreferences(
         preferredJobLocations: profileMap['preferred_job_location'] as String?,
         currentLocation: profileMap['current_location'] as String?,
-        totalExperienceYears:
-            profileMap['total_experience_years']
-                ?.toString(), // API might expect string or num
+        totalExperienceYears: tryParseNum(profileMap['total_experience_years'])?.toString(),
         currentMonthlySalary:
             profileMap['current_monthly_salary']
                 ?.toString(), // API might expect string or num
@@ -352,6 +316,14 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       );
       return false;
     }
+  }
+
+  // Helper to safely parse numbers
+  num? tryParseNum(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value;
+    if (value is String) return num.tryParse(value);
+    return null;
   }
 }
 

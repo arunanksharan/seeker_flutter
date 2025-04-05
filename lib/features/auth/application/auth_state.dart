@@ -4,7 +4,7 @@ import 'package:freezed_annotation/freezed_annotation.dart'; // Need to add free
 import 'package:seeker/models/auth_models.dart'; // Your User model
 import 'package:seeker/services/auth_service.dart';
 import 'package:seeker/services/api_client.dart'; // For dioProvider used in authServiceProvider
-import 'package:seeker/utils/logger.dart'; // For tokenServiceProvider used in authServiceProvider
+import 'package:seeker/utils/logger.dart'; 
 
 import 'package:seeker/core/errors/exceptions.dart';
 
@@ -16,7 +16,7 @@ enum AuthStatus { unknown, authenticated, unauthenticated }
 enum AuthStep { phoneInput, otpInput, unknown }
 
 @freezed
-class AuthState with _$AuthState {
+abstract class AuthState with _$AuthState {
   const factory AuthState({
     @Default(AuthStatus.unknown) AuthStatus status,
     User? user, // Logged in user data
@@ -37,24 +37,68 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
     _checkInitialAuthStatus(); // Check auth status on init
   }
 
+  // Update a single field in the state
+  void updateField(String field, dynamic value) {
+    if (field == 'authStep' && value is AuthStep) {
+      state = state.copyWith(authStep: value);
+    } else if (field == 'errorMessage' && value is String?) {
+      state = state.copyWith(errorMessage: value);
+    } else if (field == 'isLoading' && value is bool) {
+      state = state.copyWith(isLoading: value);
+    } else if (field == 'status' && value is AuthStatus) {
+      state = state.copyWith(status: value);
+    }
+    // Add other fields as needed
+  }
+
   // Check initial Auth Status
   Future<void> _checkInitialAuthStatus() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
+      // Set timeout safety to prevent indefinite loading
+      bool timeoutReached = false;
+      Future.delayed(const Duration(seconds: 5), () {
+        if (state.status == AuthStatus.unknown && !timeoutReached) {
+          timeoutReached = true;
+          logger.w('Auth status check timed out - forcing unauthenticated state');
+          state = state.copyWith(
+            status: AuthStatus.unauthenticated,
+            isLoading: false,
+            errorMessage: 'Authentication check timed out',
+            authStep: AuthStep.phoneInput,
+          );
+        }
+      });
+
       // Check Local Authentication (e.g., token existence)
       final isAuthenticated = await _authService.isAuthenticated();
+      
+      // If timeout already occurred, don't update state again
+      if (timeoutReached) return;
 
       if (isAuthenticated) {
         // Optionally fetch user details if needed on startup
-        final user = await _authService.getCurrentUser();
-        state = state.copyWith(
-          status: AuthStatus.authenticated,
-          user: user,
-          isLoading: false,
-          authStep: AuthStep.phoneInput,
-        );
+        try {
+          final user = await _authService.getCurrentUser();
+          state = state.copyWith(
+            status: AuthStatus.authenticated,
+            user: user,
+            isLoading: false,
+            authStep: AuthStep.phoneInput,
+          );
+        } catch (e) {
+          // Handle user fetch error but still consider authenticated
+          logger.e('Error fetching user details', error: e);
+          state = state.copyWith(
+            status: AuthStatus.authenticated,
+            isLoading: false,
+            authStep: AuthStep.phoneInput,
+            errorMessage: 'Authenticated but failed to load user details',
+          );
+        }
       } else {
+        logger.d('User is not authenticated, redirecting to auth screen');
         state = state.copyWith(
           status: AuthStatus.unauthenticated,
           isLoading: false,
@@ -62,8 +106,9 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
         );
       }
     } catch (e) {
+      logger.e('Error checking auth status', error: e);
       state = state.copyWith(
-        status: AuthStatus.unknown,
+        status: AuthStatus.unauthenticated, // Change to unauthenticated instead of unknown
         errorMessage: e.toString(),
         isLoading: false,
         authStep: AuthStep.phoneInput,
@@ -123,14 +168,17 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
         final authResponse = await _authService.exchangeFirebaseToken(
           userCredential!,
         );
+        // Update state with user data and auth status
         state = state.copyWith(
+          isLoading: false,
+          errorMessage: null,
           status: AuthStatus.authenticated,
           user: authResponse.user,
-          isLoading: false,
-          authStep: AuthStep.phoneInput,
-          errorMessage: null,
+          // Keep authStep as otpInput since navigation will be handled by router
         );
-        _verificationId = null; // Clear verification ID after use
+        logger.i(
+          "User authenticated successfully: ${authResponse.user.id}",
+        );
         return true;
       } else {
         throw const UnexpectedErrorException(
@@ -236,12 +284,3 @@ final authStateProvider = StateNotifierProvider<AuthStateNotifier, AuthState>((
   final authService = ref.watch(authServiceProvider);
   return AuthStateNotifier(authService);
 });
-
-
-// You'll need to add freezed, freezed_annotation, and build_runner to pubspec.yaml:
-// dependencies:
-//   freezed_annotation: ^2.4.1
-// dev_dependencies:
-//   build_runner: ^2.4.11
-//   freezed: ^2.5.2
-// Then run: flutter pub run build_runner build --delete-conflicting-outputs

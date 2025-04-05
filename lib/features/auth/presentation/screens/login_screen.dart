@@ -118,7 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Call notifier action. State change (including authStep) handled there.
     final success = await ref
         .read(authStateProvider.notifier)
-        .requestOtp(_formattedPhoneNumber);
+        .requestFirebaseOtp(_formattedPhoneNumber);
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,7 +142,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final String smsCode = _otpController.text.trim();
     // Call notifier action. State change (success/fail/authStep) handled there.
-    await ref.read(authStateProvider.notifier).verifyOtpAndLogin(smsCode);
+    await ref.read(authStateProvider.notifier).verifyFirebaseOtpAndLogin(smsCode);
     // Navigation/Error display is driven by watching/listening to authStateProvider
   }
 
