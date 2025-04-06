@@ -1,5 +1,5 @@
 // Based on seeker-rn-files/types/application.ts
-import 'package:seeker_flutter/models/job_models.dart'; // For EmploymentType
+import 'package:seeker/models/job_models.dart'; // For EmploymentType
 
 // --- Enums ---
 

@@ -1,4 +1,4 @@
-package com.example.seeker_flutter
+package com.kuzushiprotean.seeker
 
 import io.flutter.embedding.android.FlutterActivity
 

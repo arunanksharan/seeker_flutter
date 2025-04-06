@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// Import your router configuration (we'll create this next)
-import 'package:seeker_flutter/routing/app_router.dart';
-import 'package:seeker_flutter/theme/app_theme.dart'; // Import the AppTheme
+import 'package:seeker/routing/app_router.dart';
+import 'package:seeker/theme/app_theme.dart';
 
 // Use ConsumerWidget for easy access to providers if needed directly here,
 // or StatelessWidget if you configure the router provider elsewhere.
@@ -16,7 +14,7 @@ class App extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Get the router configuration. We'll set up the routerProvider soon.
     // For now, we create it directly, but ideally, it becomes a provider.
-    final router = AppRouter.router; // Accessing the static router instance
+    final router = ref.watch(goRouterProvider);
 
     return MaterialApp.router(
       title: 'Seeker App', // Replace with dynamic title later if needed

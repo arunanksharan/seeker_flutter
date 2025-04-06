@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:seeker_flutter/core/presentation/screens/initialization_error_screen.dart';
+import 'package:seeker/core/presentation/screens/initialization_error_screen.dart';
 
 // Import the generated Firebase options and your App widget
-import 'package:seeker_flutter/utils/logger.dart';
-import 'package:seeker_flutter/firebase_options.dart'; // Make sure you ran `flutterfire configure`
-import 'package:seeker_flutter/app.dart'; // We will create this file next
+import 'package:seeker/utils/logger.dart';
+import 'package:seeker/firebase_options.dart'; // Make sure you ran `flutterfire configure`
+import 'package:seeker/app.dart'; // We will create this file next
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   // Initialize Firebase using the generated options
   // This must be done before running the app
   try {
