@@ -52,6 +52,8 @@ class ApiClient {
 
   ApiClient(this._ref) {
     // Constructor now takes Ref
+    logger.d("Creating ApiClient instance"); // Log instance creation
+    logger.d(AppConfig.apiUrl);
     final options = BaseOptions(
       baseUrl: AppConfig.apiUrl,
       connectTimeout: Duration(milliseconds: AppConfig.apiTimeoutMs),

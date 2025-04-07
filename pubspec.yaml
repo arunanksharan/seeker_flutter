@@ -46,6 +46,7 @@ dependencies:
   freezed_annotation: ^3.0.0
   url_launcher: ^6.3.1
   phone_number: ^2.1.0
+  flutter_native_splash: ^2.4.6
 
 dev_dependencies:
   flutter_test:
@@ -59,6 +60,7 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   freezed: ^3.0.4
   build_runner: ^2.4.15
+
   # build_runner: ^2.4.11 # Needed for code generation (e.g., Riverpod, Freezed)
   # riverpod_generator: ^2.4.0 # If using Riverpod code generation
   # freezed: ^2.5.2 # If using Freezed for immutable models
@@ -102,3 +104,41 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+# flutter_launcher_icons:
+#   android: true # Generate icons for Android
+#   ios: true # Generate icons for iOS
+#   image_path: 'assets/logo.png' # Path to YOUR logo file
+#   min_sdk_android: 21 # Optional: Set minimum Android SDK
+
+#   # --- Optional: Adaptive Icons for Android (Android 8.0+) ---
+#   # You might need a separate background color/image and foreground image
+#   # If your logo is simple and looks okay on a plain background:
+#   adaptive_icon_background: '#FFFFFF' # Example: White background
+#   adaptive_icon_foreground: 'assets/logo.png' # Use your logo as foreground
+
+# --- Optional: Web/Windows/macOS ---
+# web:
+#   generate: true
+#   image_path: "path/to/icon.png"
+#   background_color: "#hexcode"
+#   theme_color: "#hexcode"
+# windows:
+#   generate: true
+#   image_path: "path/to/icon.png"
+#   icon_size: 48 # min:48, max:256, default: 48
+# macos:
+#   generate: true
+#   image_path: "path/to/icon.png"
+
+flutter_native_splash:
+  # The background color for the native splash screen
+  # Use a hex color string (e.g., your app's main background or brand color)
+  color: '#ffffff' # Example: White background
+
+  # The path to your logo asset (relative to the project root)
+  image: assets/logo.png
+
+  # Optional: Set 'android: true' and 'ios: true' if you want to explicitly enable for platforms
+  # By default, it runs for both if they exist.
+  android: true
+  ios: true

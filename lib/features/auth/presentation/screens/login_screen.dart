@@ -28,10 +28,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setupListener();
-      _initializeControllers(); // Initialize non-auth related controllers if any
-    });
+    _initializeControllers();
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   _setupListener();
+    //   _initializeControllers(); // Initialize non-auth related controllers if any
+    // });
   }
 
   // Listener to handle side-effects like Snackbars or clearing fields
@@ -142,7 +143,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final String smsCode = _otpController.text.trim();
     // Call notifier action. State change (success/fail/authStep) handled there.
-    await ref.read(authStateProvider.notifier).verifyFirebaseOtpAndLogin(smsCode);
+    await ref
+        .read(authStateProvider.notifier)
+        .verifyFirebaseOtpAndLogin(smsCode);
     // Navigation/Error display is driven by watching/listening to authStateProvider
   }
 
@@ -192,6 +195,53 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
 
+    ref.listen<AuthState>(authStateProvider, (previous, next) {
+      // --- CHANGE 4: Added safety check inside listener callback ---
+      if (!mounted) return; // Exit if widget is no longer in the tree
+
+      logger.d(
+        "Listener triggered: Prev step=${previous?.authStep}, Next step=${next.authStep}",
+      );
+      // ... (rest of your listener logic: clearing OTP, showing SnackBars, setting _registrationNumberError state) ...
+
+      // Example: Clear OTP field when authStep changes back to phoneInput
+      if (previous?.authStep == AuthStep.otpInput &&
+          next.authStep == AuthStep.phoneInput) {
+        logger.d("Clearing OTP controller");
+        _otpController.clear();
+      }
+
+      // Example: Show Snackbars for general errors
+      if (previous?.isLoading == true &&
+          !next.isLoading &&
+          next.errorMessage != null) {
+        final isAccountNotFoundError =
+            next.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
+        if (!isAccountNotFoundError) {
+          logger.d("Showing general error SnackBar");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.errorMessage!),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+
+      // Example: Update local state based on error message changes
+      final newRegError = _extractRegistrationNumber(next.errorMessage);
+      if (_registrationNumberError != newRegError) {
+        logger.d(
+          "Updating registration number error state from '$_registrationNumberError' to '$newRegError'",
+        );
+        // Note: setState is safe here because it's called from the listener callback,
+        // not directly during the build phase, and we checked 'mounted'.
+        setState(() {
+          _registrationNumberError = newRegError;
+        });
+      }
+    });
+
     // Watch the full auth state
     final authState = ref.watch(authStateProvider);
     final isLoading = authState.isLoading;
@@ -215,22 +265,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Column(
                   children: [
                     Image.asset(
-                      'assets/logo-3.png',
+                      'assets/logo.png',
                       height: 100,
                       width: 100,
                       errorBuilder:
                           (context, error, stackTrace) =>
                               const Icon(Icons.image_not_supported, size: 100),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Text(
                       'Welcome to Seeker',
-                      style: textTheme.displaySmall?.copyWith(
+                      style: textTheme.displayMedium?.copyWith(
                         color: colorScheme.primary,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 24),
                     Text(
                       'Find your perfect job opportunity',
                       style: textTheme.bodyLarge?.copyWith(
@@ -240,11 +290,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 32),
 
                 // --- Conditional Form: Use authState.authStep ---
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 100),
                   // Control visibility based on the authStep from the state provider
                   child:
                       currentAuthStep == AuthStep.otpInput
@@ -277,12 +327,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 20),
                     Row(
                       children: [
-                        Expanded(child: Divider(color: theme.dividerColor)),
+                        Expanded(child: Divider(color: Colors.grey.shade300)),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: Row(
                             children: [
-                              Text('Powered by', style: textTheme.bodySmall),
+                              Text(
+                                'Powered by',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurface.withAlpha(153),
+                                ),
+                              ),
                               const SizedBox(width: 4),
                               Image.asset(
                                 'assets/onest-logo.png',
@@ -297,7 +352,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ],
                           ),
                         ),
-                        Expanded(child: Divider(color: theme.dividerColor)),
+                        Expanded(child: Divider(color: Colors.grey.shade300)),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -343,10 +398,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             keyboardType: TextInputType.phone,
             maxLength: 15,
             enabled: !isLoading,
-            decoration: const InputDecoration(
-              hintText: 'Enter your mobile number',
-              counterText: "",
-            ),
+            decoration: const InputDecoration(counterText: ""),
             style: textTheme.bodyLarge,
             // Use validator with form key
             validator: (value) {
@@ -402,6 +454,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           // --- ---------------------------- ---
           ElevatedButton(
             // Validate form before calling _sendOtp
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                Set<WidgetState> states,
+              ) {
+                // Always return primary color, even when disabled
+                return colorScheme.primary;
+              }),
+              foregroundColor: WidgetStateProperty.all(Colors.white),
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(vertical: 12),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
             onPressed:
                 isLoading
                     ? null
@@ -455,16 +522,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _otpController,
             keyboardType: TextInputType.number,
             maxLength: 6,
             enabled: !isLoading,
             textAlign: TextAlign.center,
-            style: textTheme.headlineMedium,
+            style: textTheme.bodyLarge,
             decoration: const InputDecoration(
-              hintText: '------',
+              hintText: '- - - - - -',
               counterText: "",
             ),
             // Use validator with form key
@@ -490,6 +557,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
           ElevatedButton(
             // Validate form before calling _verifyOtp
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                Set<WidgetState> states,
+              ) {
+                // Always return primary color, even when disabled
+                return colorScheme.primary;
+              }),
+              foregroundColor: WidgetStateProperty.all(Colors.white),
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(vertical: 12),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
             onPressed:
                 (isLoading || _otpController.text.length != 6)
                     ? null
@@ -517,7 +599,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     : () => ref
                         .read(authStateProvider.notifier)
                         .updateField('authStep', AuthStep.phoneInput),
-            child: const Text('Change Mobile Number'),
+            child: Text(
+              'Change Mobile Number',
+              style: TextStyle(color: colorScheme.primary),
+            ),
           ),
         ],
       ),

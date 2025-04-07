@@ -3,7 +3,9 @@ class AppConfig {
   // API URL loaded from build environment variable or default
   static const String apiUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'https://api.itihiring.in', // Default from app.config.js
+    defaultValue:
+        'https://api.itihiring.in/employee', // Default from app.config.js
+    // defaultValue: 'http://192.168.1.5:3311/employee',
   );
 
   // API Timeout constant
