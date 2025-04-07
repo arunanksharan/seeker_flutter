@@ -245,7 +245,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // Handle initial loading error state
     if (!state.dataLoaded && state.errorMessage != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: theme.scaffoldBackgroundColor,
+          foregroundColor: theme.colorScheme.onSurface,
+          titleSpacing: 0,
+          centerTitle: false,
+
+          title: Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: Text(
+              state.isEditing ? 'Edit Profile' : 'View Profile',
+              style: textTheme.headlineMedium,
+            ),
+          ),
+        ),
         body: Center(child: Text("Error: ${state.errorMessage}")),
       );
     }
@@ -352,7 +366,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     const SizedBox(height: 16), // Space before save button
                     // Save Button (visible only in edit mode)
                     if (state.isEditing)
-                      Center(
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 0.0),
                         child: ElevatedButton(
                           onPressed: state.isSaving ? null : _saveForm,
                           style: ElevatedButton.styleFrom(
@@ -496,6 +511,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             controller: controller,
             readOnly: true, // Always read-only, rely on onTap
             enabled: isEditing, // Enable/disable based on edit mode
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              // Example: Use bodyLarge style from your theme as a base
+
+              // Conditionally change color based on whether the field is enabled (editing)
+              color:
+                  isEditing
+                      ? Theme.of(context)
+                          .colorScheme
+                          .onSurface // Use default text color when editing
+                      : Colors.grey[700],
+            ),
             decoration: InputDecoration(
               hintText: 'DD-MM-YYYY',
               suffixIcon: Icon(
@@ -506,9 +532,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               enabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: Theme.of(context).primaryColor),
               ),
-              disabledBorder: const OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey),
+              disabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey[100]!),
               ),
+              filled: true,
+              fillColor: isEditing ? Colors.white : Colors.grey[50],
             ),
             onTap: isEditing ? () => _selectDate(context) : null,
             validator:
@@ -543,11 +571,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             enabledBorder: OutlineInputBorder(
               borderSide: BorderSide(color: Theme.of(context).primaryColor),
             ),
-            disabledBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey),
+            disabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey[100]!),
             ),
             filled: true,
-            fillColor: isEditing ? Colors.white : Colors.grey[100],
+            fillColor: isEditing ? Colors.white : Colors.grey[50],
           ),
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: isEditing ? Colors.black : Colors.grey[700],
@@ -584,15 +612,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               value: title,
               groupValue: groupValue,
               visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, // Reduce tap area padding
-              onChanged: isEditing
-                  ? (String? value) {
-                      logger.d("Gender radio changed to: $value, isEditing: $isEditing");
-                      if (value != null) {
-                        notifier.updateField('gender', value);
+              materialTapTargetSize:
+                  MaterialTapTargetSize.shrinkWrap, // Reduce tap area padding
+              onChanged:
+                  isEditing
+                      ? (String? value) {
+                        logger.d(
+                          "Gender radio changed to: $value, isEditing: $isEditing",
+                        );
+                        if (value != null) {
+                          notifier.updateField('gender', value);
+                        }
                       }
-                    }
-                  : null, // Disable if not editing
+                      : null, // Disable if not editing
             ),
             Text(title),
           ],

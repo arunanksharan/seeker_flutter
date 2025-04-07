@@ -96,17 +96,14 @@ class HomeScreen extends ConsumerWidget {
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Cancel'),
+                          child: Text('Cancel', style: textTheme.bodyMedium),
                         ),
                         TextButton(
                           onPressed: () {
                             Navigator.of(context).pop();
                             ref.read(authStateProvider.notifier).logout();
                           },
-                          child: Text(
-                            'Logout',
-                            style: TextStyle(color: colorScheme.error),
-                          ),
+                          child: Text('Logout', style: textTheme.bodyMedium),
                         ),
                       ],
                     ),
@@ -194,7 +191,7 @@ class HomeScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: theme.scaffoldBackgroundColor,
                         borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: theme.dividerColor),
+                        border: Border.all(color: Colors.grey[100]!),
                       ),
                       child: Row(
                         children: [

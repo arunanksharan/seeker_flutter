@@ -246,7 +246,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                 // --- Conditional Form: Use authState.authStep ---
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 100),
                   // Control visibility based on the authStep from the state provider
                   child:
                       currentAuthStep == AuthStep.otpInput
@@ -406,6 +406,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           // --- ---------------------------- ---
           ElevatedButton(
             // Validate form before calling _sendOtp
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                Set<WidgetState> states,
+              ) {
+                // Always return primary color, even when disabled
+                return colorScheme.primary;
+              }),
+              foregroundColor: WidgetStateProperty.all(Colors.white),
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(vertical: 12),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
             onPressed:
                 isLoading
                     ? null
@@ -496,6 +511,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
           ElevatedButton(
             // Validate form before calling _verifyOtp
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                Set<WidgetState> states,
+              ) {
+                // Always return primary color, even when disabled
+                return colorScheme.primary;
+              }),
+              foregroundColor: WidgetStateProperty.all(Colors.white),
+              padding: WidgetStateProperty.all(
+                const EdgeInsets.symmetric(vertical: 12),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
             onPressed:
                 (isLoading || _otpController.text.length != 6)
                     ? null
