@@ -142,7 +142,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     final String smsCode = _otpController.text.trim();
     // Call notifier action. State change (success/fail/authStep) handled there.
-    await ref.read(authStateProvider.notifier).verifyFirebaseOtpAndLogin(smsCode);
+    await ref
+        .read(authStateProvider.notifier)
+        .verifyFirebaseOtpAndLogin(smsCode);
     // Navigation/Error display is driven by watching/listening to authStateProvider
   }
 
@@ -215,22 +217,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Column(
                   children: [
                     Image.asset(
-                      'assets/logo-3.png',
+                      'assets/logo.png',
                       height: 100,
                       width: 100,
                       errorBuilder:
                           (context, error, stackTrace) =>
                               const Icon(Icons.image_not_supported, size: 100),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Text(
                       'Welcome to Seeker',
-                      style: textTheme.displaySmall?.copyWith(
+                      style: textTheme.displayMedium?.copyWith(
                         color: colorScheme.primary,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 24),
                     Text(
                       'Find your perfect job opportunity',
                       style: textTheme.bodyLarge?.copyWith(
@@ -240,7 +242,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 32),
 
                 // --- Conditional Form: Use authState.authStep ---
                 AnimatedSwitcher(
@@ -277,12 +279,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 20),
                     Row(
                       children: [
-                        Expanded(child: Divider(color: theme.dividerColor)),
+                        Expanded(child: Divider(color: Colors.grey.shade300)),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: Row(
                             children: [
-                              Text('Powered by', style: textTheme.bodySmall),
+                              Text(
+                                'Powered by',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurface.withAlpha(153),
+                                ),
+                              ),
                               const SizedBox(width: 4),
                               Image.asset(
                                 'assets/onest-logo.png',
@@ -297,7 +304,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ],
                           ),
                         ),
-                        Expanded(child: Divider(color: theme.dividerColor)),
+                        Expanded(child: Divider(color: Colors.grey.shade300)),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -343,10 +350,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             keyboardType: TextInputType.phone,
             maxLength: 15,
             enabled: !isLoading,
-            decoration: const InputDecoration(
-              hintText: 'Enter your mobile number',
-              counterText: "",
-            ),
+            decoration: const InputDecoration(counterText: ""),
             style: textTheme.bodyLarge,
             // Use validator with form key
             validator: (value) {
@@ -455,16 +459,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           TextFormField(
             controller: _otpController,
             keyboardType: TextInputType.number,
             maxLength: 6,
             enabled: !isLoading,
             textAlign: TextAlign.center,
-            style: textTheme.headlineMedium,
+            style: textTheme.headlineMedium?.copyWith(
+              color: colorScheme.onSurface.withAlpha(153),
+            ),
             decoration: const InputDecoration(
-              hintText: '------',
+              hintText: '- - - - - -',
               counterText: "",
             ),
             // Use validator with form key
@@ -517,7 +523,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     : () => ref
                         .read(authStateProvider.notifier)
                         .updateField('authStep', AuthStep.phoneInput),
-            child: const Text('Change Mobile Number'),
+            child: Text(
+              'Change Mobile Number',
+              style: TextStyle(color: colorScheme.primary),
+            ),
           ),
         ],
       ),

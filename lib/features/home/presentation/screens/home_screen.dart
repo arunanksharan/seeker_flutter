@@ -11,6 +11,7 @@ import 'package:seeker/features/auth/application/auth_state.dart';
 import 'package:seeker/routing/app_router.dart';
 import 'package:seeker/utils/logger.dart';
 import 'package:seeker/features/profile/application/profile_providers.dart';
+import 'package:seeker/theme/app_colors.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -52,22 +53,30 @@ class HomeScreen extends ConsumerWidget {
         elevation: 0,
         backgroundColor: theme.scaffoldBackgroundColor,
         foregroundColor: colorScheme.onSurface,
-        titleSpacing: 24.0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              greetingName != null ? 'Hi $greetingName!' : 'Hi!',
-              style: textTheme.headlineMedium,
-            ),
-            Text(
-              'Find your dream job today',
-              style: textTheme.bodyMedium?.copyWith(
-                // Use withAlpha instead of withOpacity
-                color: colorScheme.onSurface.withAlpha(153), // 60% opacity
+        titleSpacing: 0,
+        centerTitle: false,
+        title: Padding(
+          // Wrap the Column with Padding
+          padding: const EdgeInsets.only(
+            left: 16.0,
+            top: 16.0,
+          ), // <-- Add desired left padding here
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                greetingName != null ? 'Hi $greetingName!' : 'Hi!',
+                style: textTheme.headlineMedium,
               ),
-            ),
-          ],
+              Text(
+                'Find your dream job today',
+                style: textTheme.bodyMedium?.copyWith(
+                  // Use withAlpha instead of withOpacity
+                  color: colorScheme.onSurface.withAlpha(153), // 60% opacity
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           // Logout Button remains the same
@@ -115,7 +124,7 @@ class HomeScreen extends ConsumerWidget {
           padding: EdgeInsets.zero,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -132,7 +141,7 @@ class HomeScreen extends ConsumerWidget {
                           colorScheme,
                           profile == null
                               ? "Create Your Profile"
-                              : "View / Edit Profile", // Adjusted title
+                              : "Edit Profile", // Adjusted title
                           profile == null
                               ? "Get started to find job recommendations."
                               : "Keep your profile details up to date.",
@@ -144,7 +153,7 @@ class HomeScreen extends ConsumerWidget {
                           theme,
                           textTheme,
                           colorScheme,
-                          "View / Edit Profile",
+                          "Edit Profile",
                           "Could not load profile details.",
                           null,
                           true,
@@ -255,7 +264,7 @@ class HomeScreen extends ConsumerWidget {
     // ... (implementation remains the same) ...
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -324,10 +333,7 @@ class HomeScreen extends ConsumerWidget {
   ]) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      color:
-          isError
-              ? colorScheme.error.withAlpha(153)
-              : colorScheme.primary.withAlpha(153),
+      color: isError ? colorScheme.error.withAlpha(153) : AppColors.primary50,
       elevation: isError ? 0 : 1, // No shadow for error?
       shape: RoundedRectangleBorder(
         side:

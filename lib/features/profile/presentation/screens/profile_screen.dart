@@ -93,12 +93,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       logger.d("ProfileScreen: Post frame callback triggered");
       _setupListener();
-      
+
       // Force immediate data load
       final profileData = ref.read(profileNotifierProvider).profileData;
       logger.d("ProfileScreen: Initial profileData: $profileData");
       _initializeFormFields(profileData: profileData);
-      
+
       // Force edit mode for testing
       Future.delayed(const Duration(seconds: 1), () {
         if (mounted) {
@@ -113,14 +113,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     logger.d("ProfileScreen: Setting up state listener");
     ref.listen<ProfileState>(profileNotifierProvider, (previous, next) {
       logger.d("ProfileScreen: ProfileState changed");
-      logger.d("ProfileScreen: isLoading: ${next.isLoading}, dataLoaded: ${next.dataLoaded}");
-      
+      logger.d(
+        "ProfileScreen: isLoading: ${next.isLoading}, dataLoaded: ${next.dataLoaded}",
+      );
+
       // Only update fields if data is loaded and not in edit mode
       if (next.dataLoaded && !next.isLoading && !next.isEditing) {
         logger.d("ProfileScreen: Updating form fields from listener");
         _initializeFormFields(profileData: next.profileData);
       }
-      
+
       // Handle save success/error messages via SnackBar
       if (previous?.isSaving == true && next.isSaving == false) {
         if (mounted) {
@@ -148,9 +150,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _initializeFormFields({Map<String, dynamic>? profileData}) {
     final data = profileData ?? ref.read(profileNotifierProvider).profileData;
     if (mounted) {
-      logger.d("ProfileScreen: Initializing/Updating form controllers with data: $data");
-      logger.d("ProfileScreen: Data has ${data.length} fields with keys: ${data.keys.toList()}");
-      
+      logger.d(
+        "ProfileScreen: Initializing/Updating form controllers with data: $data",
+      );
+      logger.d(
+        "ProfileScreen: Data has ${data.length} fields with keys: ${data.keys.toList()}",
+      );
+
       for (var field in _formFields) {
         final key = field['key'] as String;
         final controller = _controllers[key];
@@ -222,8 +228,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final profileData = state.profileData;
 
     final theme = Theme.of(context);
-    
-    logger.d("ProfileScreen: Building UI - isLoading: ${state.isLoading}, dataLoaded: ${state.dataLoaded}, isEditing: ${state.isEditing}");
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
+
+    logger.d(
+      "ProfileScreen: Building UI - isLoading: ${state.isLoading}, dataLoaded: ${state.dataLoaded}, isEditing: ${state.isEditing}",
+    );
 
     // Handle initial loading state
     if (state.isLoading && !state.dataLoaded) {
@@ -242,20 +252,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(state.isEditing ? 'Edit Profile' : 'View Profile'),
+        elevation: 0,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: theme.colorScheme.onSurface,
+        titleSpacing: 0,
+        centerTitle: false,
+
+        title: Padding(
+          padding: const EdgeInsets.only(left: 16.0),
+          child: Text(
+            state.isEditing ? 'Edit Profile' : 'View Profile',
+            style: textTheme.headlineMedium,
+          ),
+        ),
         actions: [
           // Toggle Edit/Cancel Button
           if (state.dataLoaded) // Show only if data loaded ok
             TextButton(
-              onPressed: state.isSaving 
-                  ? null 
-                  : () {
-                      logger.d("Edit/Cancel button pressed, current isEditing: ${state.isEditing}");
-                      notifier.setEditMode(!state.isEditing);
-                    },
+              onPressed:
+                  state.isSaving
+                      ? null
+                      : () {
+                        logger.d(
+                          "Edit/Cancel button pressed, current isEditing: ${state.isEditing}",
+                        );
+                        notifier.setEditMode(!state.isEditing);
+                      },
               child: Text(
                 state.isEditing ? 'Cancel' : 'Edit',
-                style: const TextStyle(color: Colors.white),
+                style: textTheme.titleMedium?.copyWith(
+                  color: colorScheme.primary,
+                ),
               ),
             ),
           const SizedBox(width: 8),
@@ -274,27 +301,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             children: [
               // Main form content
               SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(), // Always allow scrolling
-                padding: const EdgeInsets.all(24.0),
+                physics:
+                    const AlwaysScrollableScrollPhysics(), // Always allow scrolling
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Debug info for development
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.amber.withOpacity(0.2),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Debug - isEditing: ${state.isEditing}"),
-                          Text("Debug - isLoading: ${state.isLoading}"),
-                          Text("Debug - isSaving: ${state.isSaving}"),
-                          Text("Debug - dataLoaded: ${state.dataLoaded}"),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
+                    // // Debug info for development
+                    // Container(
+                    //   padding: const EdgeInsets.all(8),
+                    //   color: Colors.amber.withOpacity(0.2),
+                    //   child: Column(
+                    //     crossAxisAlignment: CrossAxisAlignment.start,
+                    //     children: [
+                    //       Text("Debug - isEditing: ${state.isEditing}"),
+                    //       Text("Debug - isLoading: ${state.isLoading}"),
+                    //       Text("Debug - isSaving: ${state.isSaving}"),
+                    //       Text("Debug - dataLoaded: ${state.dataLoaded}"),
+                    //     ],
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 16),
+
                     // Form with fields
                     Form(
                       key: _formKey,
@@ -311,13 +339,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   notifier,
                                 ),
                               )
-                              .expand((widget) => [widget, const SizedBox(height: 24)]),
+                              .expand(
+                                (widget) => [
+                                  widget,
+                                  const SizedBox(height: 24),
+                                ],
+                              ),
                         ],
                       ),
                     ),
 
                     const SizedBox(height: 16), // Space before save button
-                    
                     // Save Button (visible only in edit mode)
                     if (state.isEditing)
                       Center(
@@ -326,18 +358,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(context).primaryColor,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 32,
+                              vertical: 12,
+                            ),
                           ),
-                          child: state.isSaving
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text('Save Changes'),
+                          child:
+                              state.isSaving
+                                  ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                  : const Text('Save Changes'),
                         ),
                       ),
 
@@ -360,28 +396,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ],
                 ),
               ),
-              
+
               // Overlay loading indicator when saving
               if (state.isSaving)
                 Container(
                   color: Colors.black.withOpacity(0.1),
-                  child: const Center(
-                    child: CircularProgressIndicator(),
-                  ),
+                  child: const Center(child: CircularProgressIndicator()),
                 ),
             ],
           ),
         ),
       ),
-      floatingActionButton: state.isEditing 
-          ? null 
-          : FloatingActionButton(
-              onPressed: () {
-                logger.d("Edit FAB pressed");
-                notifier.setEditMode(true);
-              },
-              child: const Icon(Icons.edit),
-            ),
+      floatingActionButton:
+          state.isEditing
+              ? null
+              : FloatingActionButton(
+                onPressed: () {
+                  logger.d("Edit FAB pressed");
+                  notifier.setEditMode(true);
+                },
+                child: const Icon(Icons.edit),
+              ),
     );
   }
 
@@ -405,8 +440,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final controller = _controllers[key];
     final currentValue = currentData[key];
 
-    logger.d("Building field '$key' with isEditing=$isEditing, currentValue=$currentValue");
-    
+    logger.d(
+      "Building field '$key' with isEditing=$isEditing, currentValue=$currentValue",
+    );
+
     // IMPORTANT: Set the controller text value directly here to ensure it's always up to date
     if (controller != null && currentValue != null) {
       // Only update if different to avoid cursor jumps
