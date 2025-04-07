@@ -573,21 +573,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ProfileNotifier notifier,
     bool isEditing,
   ) {
+    // Use InkWell + Row + Radio + Text for better layout control
     return Expanded(
-      child: RadioListTile<String>(
-        title: Text(title),
-        value: title,
-        groupValue: groupValue,
-        // Only allow changes if in edit mode
-        onChanged: (String? value) {
-          logger.d("Gender radio changed to: $value, isEditing: $isEditing");
-          if (isEditing && value != null) {
-            notifier.updateField('gender', value);
-          }
-        },
-        contentPadding: EdgeInsets.zero,
-        visualDensity: VisualDensity.compact,
+      child: InkWell(
+        onTap: isEditing ? () => notifier.updateField('gender', title) : null,
+        child: Row(
+          mainAxisSize: MainAxisSize.min, // Keep radio and text close
+          children: [
+            Radio<String>(
+              value: title,
+              groupValue: groupValue,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, // Reduce tap area padding
+              onChanged: isEditing
+                  ? (String? value) {
+                      logger.d("Gender radio changed to: $value, isEditing: $isEditing");
+                      if (value != null) {
+                        notifier.updateField('gender', value);
+                      }
+                    }
+                  : null, // Disable if not editing
+            ),
+            Text(title),
+          ],
+        ),
       ),
     );
   }
+
+  // Helper to build a text field row
 } // End _ProfileScreenState
