@@ -27,28 +27,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     {'key': 'father_name', 'label': "Father's Name"},
     {'key': 'mother_name', 'label': "Mother's Name"},
     {
-      'key': 'gender',
-      'label': 'Gender',
-      'type': 'gender',
-    }, // Special type for radio
-    {
       'key': 'dob',
       'label': 'Date of Birth',
       'type': 'date',
     }, // Special type for date picker
     {
+      'key': 'gender',
+      'label': 'Gender',
+      'type': 'gender',
+    }, // Special type for radio
+
+    {
       'key': 'hometown_and_locality',
       'label': 'Address',
       'maxLines': 3,
     }, // Maps to Address
-    {'key': 'institute_name', 'label': 'Institute Name'}, // ITI
-    {'key': 'trade', 'label': 'Trade'}, // ITI
-    {'key': 'training_duration', 'label': 'Training Duration'}, // ITI
     {
       'key': 'state_registration_number',
       'label': 'NCVT Roll No.',
       'required': true,
     }, // ITI
+    {'key': 'institute_name', 'label': 'Institute Name'}, // ITI
+    {'key': 'trade', 'label': 'Trade'}, // ITI
+    {'key': 'training_duration', 'label': 'Training Duration'}, // ITI
+
     {
       'key': 'total_experience_years',
       'label': 'Total Experience (Years)',
@@ -99,13 +101,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       logger.d("ProfileScreen: Initial profileData: $profileData");
       _initializeFormFields(profileData: profileData);
 
-      // Force edit mode for testing
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          logger.d("ProfileScreen: Forcing edit mode for testing");
-          ref.read(profileNotifierProvider.notifier).setEditMode(true);
-        }
-      });
+      // // Force edit mode for testing
+      // Future.delayed(const Duration(seconds: 1), () {
+      //   if (mounted) {
+      //     logger.d("ProfileScreen: Forcing edit mode for testing");
+      //     ref.read(profileNotifierProvider.notifier).setEditMode(true);
+      //   }
+      // });
     });
   }
 
@@ -238,7 +240,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // Handle initial loading state
     if (state.isLoading && !state.dataLoaded) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: theme.scaffoldBackgroundColor,
+          foregroundColor: theme.colorScheme.onSurface,
+          titleSpacing: 0,
+          centerTitle: false,
+
+          title: Padding(
+            padding: const EdgeInsets.only(left: 16.0),
+            child: Text('View Profile', style: textTheme.headlineMedium),
+          ),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }

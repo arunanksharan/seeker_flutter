@@ -28,10 +28,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setupListener();
-      _initializeControllers(); // Initialize non-auth related controllers if any
-    });
+    _initializeControllers();
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   _setupListener();
+    //   _initializeControllers(); // Initialize non-auth related controllers if any
+    // });
   }
 
   // Listener to handle side-effects like Snackbars or clearing fields
@@ -193,6 +194,53 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final colorScheme = theme.colorScheme;
+
+    ref.listen<AuthState>(authStateProvider, (previous, next) {
+      // --- CHANGE 4: Added safety check inside listener callback ---
+      if (!mounted) return; // Exit if widget is no longer in the tree
+
+      logger.d(
+        "Listener triggered: Prev step=${previous?.authStep}, Next step=${next.authStep}",
+      );
+      // ... (rest of your listener logic: clearing OTP, showing SnackBars, setting _registrationNumberError state) ...
+
+      // Example: Clear OTP field when authStep changes back to phoneInput
+      if (previous?.authStep == AuthStep.otpInput &&
+          next.authStep == AuthStep.phoneInput) {
+        logger.d("Clearing OTP controller");
+        _otpController.clear();
+      }
+
+      // Example: Show Snackbars for general errors
+      if (previous?.isLoading == true &&
+          !next.isLoading &&
+          next.errorMessage != null) {
+        final isAccountNotFoundError =
+            next.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
+        if (!isAccountNotFoundError) {
+          logger.d("Showing general error SnackBar");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(next.errorMessage!),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+
+      // Example: Update local state based on error message changes
+      final newRegError = _extractRegistrationNumber(next.errorMessage);
+      if (_registrationNumberError != newRegError) {
+        logger.d(
+          "Updating registration number error state from '$_registrationNumberError' to '$newRegError'",
+        );
+        // Note: setState is safe here because it's called from the listener callback,
+        // not directly during the build phase, and we checked 'mounted'.
+        setState(() {
+          _registrationNumberError = newRegError;
+        });
+      }
+    });
 
     // Watch the full auth state
     final authState = ref.watch(authStateProvider);
@@ -481,9 +529,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             maxLength: 6,
             enabled: !isLoading,
             textAlign: TextAlign.center,
-            style: textTheme.headlineMedium?.copyWith(
-              color: colorScheme.onSurface.withAlpha(153),
-            ),
+            style: textTheme.bodyLarge,
             decoration: const InputDecoration(
               hintText: '- - - - - -',
               counterText: "",

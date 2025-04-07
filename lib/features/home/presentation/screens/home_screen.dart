@@ -220,7 +220,8 @@ class HomeScreen extends ConsumerWidget {
               // Show "Coming Soon" directly on tap
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text("Job Recommendations Coming Soon!"),
+                  content: Text("Coming Soon!"),
+                  duration: Duration(milliseconds: 500),
                 ),
               );
             }),
@@ -229,10 +230,13 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 32.0),
 
             // --- Recent Jobs Section (Placeholder UI) ---
-            _buildSectionHeader(context, 'Recent jobs', () {
+            _buildSectionHeader(context, 'Recent Jobs', () {
               // Show "Coming Soon" directly on tap
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Recent Jobs List Coming Soon!")),
+                const SnackBar(
+                  content: Text("Coming Soon!"),
+                  duration: Duration(milliseconds: 500),
+                ),
               );
             }),
             // Display placeholder content instead of watching provider
@@ -344,7 +348,7 @@ class HomeScreen extends ConsumerWidget {
           if (!isError) {
             // Only navigate if not an error card
             logger.i("Navigating to Profile Edit screen...");
-            context.push(AppRoutes.profile);
+            context.go(AppRoutes.profile);
           } else {
             // Option: Allow retry on error tap
             logger.i("Profile error card tapped.");
