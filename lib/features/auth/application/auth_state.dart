@@ -190,9 +190,9 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
       logger.w("AccountNotFoundException caught: ${e.message}");
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.message, // Use message from exception
+        errorMessage: "ACCOUNT_NOT_FOUND: ${e.message}", // Prefix error message for UI to detect
         status: AuthStatus.unauthenticated,
-        authStep: AuthStep.phoneInput, // Go back to phone input
+        authStep: AuthStep.otpInput, // Stay on OTP input to show the message
       );
       _verificationId = null;
       return false;

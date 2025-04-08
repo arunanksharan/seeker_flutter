@@ -377,10 +377,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     AuthState authState,
   ) {
     // Get specific error message for inline display if it's the account not found type
-    final inlineErrorMessage =
-        (authState.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false)
-            ? authState.errorMessage
-            : null;
+    // final inlineErrorMessage =
+    //     (authState.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false)
+    //         ? authState.errorMessage
+    //         : null;
 
     return Form(
       key: _formKeyPhone,
@@ -413,45 +413,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
           // --- Refined Inline Error Display ---
           // Show specific "Account not found" error inline
-          if (inlineErrorMessage != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: Text.rich(
-                TextSpan(
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.error,
-                  ),
-                  children: [
-                    // Show text before number placeholder
-                    TextSpan(
-                      text:
-                          inlineErrorMessage
-                              .replaceFirst("ACCOUNT_NOT_FOUND:", "")
-                              .split(' Please call')[0]
-                              .trim(),
-                    ),
-                    // Show clickable number if extracted
-                    if (_registrationNumberError != null)
-                      TextSpan(
-                        text: " Call $_registrationNumberError",
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        recognizer:
-                            TapGestureRecognizer()
-                              ..onTap =
-                                  () => _callPhoneNumber(
-                                    _registrationNumberError!,
-                                  ),
-                      ),
-                  ],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
+          // if (inlineErrorMessage != null)
+          //   Padding(
+          //     padding: const EdgeInsets.only(bottom: 16.0),
+          //     child: Text.rich(
+          //       TextSpan(
+          //         style: textTheme.bodyMedium?.copyWith(
+          //           color: colorScheme.error,
+          //         ),
+          //         children: [
+          //           // Show text before number placeholder
+          //           TextSpan(
+          //             text:
+          //                 inlineErrorMessage
+          //                     .replaceFirst("ACCOUNT_NOT_FOUND:", "")
+          //                     .split(' Please call')[0]
+          //                     .trim(),
+          //           ),
+          //           // Show clickable number if extracted
+          //           if (_registrationNumberError != null)
+          //             TextSpan(
+          //               text: " Call $_registrationNumberError",
+          //               style: TextStyle(
+          //                 color: colorScheme.primary,
+          //                 fontWeight: FontWeight.bold,
+          //               ),
+          //               recognizer:
+          //                   TapGestureRecognizer()
+          //                     ..onTap =
+          //                         () => _callPhoneNumber(
+          //                           _registrationNumberError!,
+          //                         ),
+          //             ),
+          //         ],
+          //       ),
+          //       textAlign: TextAlign.center,
+          //     ),
+          //   ),
 
-          // --- ---------------------------- ---
+          // // --- ---------------------------- ---
           ElevatedButton(
             // Validate form before calling _sendOtp
             style: ButtonStyle(
@@ -508,6 +508,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     true)
             ? authState.errorMessage
             : null;
+
+    // Check specifically for account not found error
+    final bool isAccountNotFoundError =
+        authState.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
 
     return Form(
       key: _formKeyOtp,
@@ -590,6 +594,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     )
                     : const Text('Verify OTP'),
           ),
+
+          // New account not found message - permanent and below the verify button
+          if (isAccountNotFoundError)
+            Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: Container(
+                padding: const EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red[100]!),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'No account found. Please call 08035736454 to register',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: Colors.red[800],
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _callPhoneNumber('8035736454'),
+                      icon: const Icon(Icons.call, size: 18),
+                      label: const Text('Call to Register'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red[700],
+                        side: BorderSide(color: Colors.red[200]!),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           const SizedBox(height: 8),
           TextButton(
             // Change state explicitly using notifier
