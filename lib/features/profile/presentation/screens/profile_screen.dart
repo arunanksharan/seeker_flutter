@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:seeker/features/profile/application/profile_notifier.dart';
 import 'package:seeker/features/profile/application/profile_providers.dart';
+import 'package:seeker/theme/app_colors.dart';
 import 'package:seeker/utils/logger.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -77,6 +78,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       'label': 'Expected Monthly Salary (INR)',
       'keyboard': TextInputType.number,
     }, // Job Prefs
+    {
+      'key': 'user_consent',
+      'label': 'I consent to my data usage', // Example Label - adjust as needed
+      'type': 'checkbox',
+      'editable': true, // This one can be changed by the user
+    },
+    {
+      'key': 'iti_verified',
+      'label': 'ITI Verified Status', // Example Label
+      'type': 'checkbox',
+      'editable': false, // This one cannot be changed by the user
+    },
     // Add other fields from your flat structure here...
     // {'key': 'skills', 'label': 'Skills', 'type': 'chips'}, // Example for chips
   ];
@@ -480,6 +493,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         logger.d("Updated controller for '$key' to: '${controller.text}'");
       }
     }
+    // Get Theme data once
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+    final colorScheme = theme.colorScheme;
 
     // --- Build based on type ---
 
@@ -561,6 +578,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ],
       );
     }
+
+    if (type == 'checkbox') {
+      final bool isFieldEditable =
+          fieldConfig['editable'] ?? true; // Get editable flag from config
+      // Safely get boolean value from data, default to false if null or wrong type
+      final bool currentValueBool =
+          (currentValue is bool) ? currentValue : false;
+
+      // Determine if the checkbox interaction should be enabled
+      final bool canChange = isEditing && isFieldEditable;
+
+      return CheckboxListTile(
+        title: Text(
+          label,
+          // Style to match other field labels or content
+          style: textTheme.bodyMedium?.copyWith(
+            // Grey out label if checkbox cannot be changed currently
+            // color: canChange ? Colors.red : Colors.grey[50],
+            color: Colors.grey[700],
+          ),
+        ),
+        value: currentValueBool,
+        onChanged:
+            canChange
+                ? (bool? newValue) {
+                  // Callback only active if canChange is true
+                  if (newValue != null) {
+                    logger.d("Checkbox '$key' changed to: '$newValue'");
+                    notifier.updateField(
+                      key,
+                      newValue,
+                    ); // Update state via notifier
+                  }
+                }
+                : null, // Setting onChanged to null visually disables the checkbox
+        controlAffinity:
+            ListTileControlAffinity.leading, // Checkbox appears first
+        dense: true, // Reduces vertical height
+        visualDensity: VisualDensity.compact,
+        activeColor: colorScheme.primary, // Color when checked
+        checkColor: colorScheme.onPrimary, // Color of the check mark itself
+        // Ensure checkbox looks appropriately disabled visually when canChange is false
+        // tileColor:
+        //     canChange
+        //         ? null
+        //         : theme.disabledColor.withAlpha(
+        //           153,
+        //         ), // Subtle background when disabled
+      );
+    }
+    // --- END OF ADDED BLOCK ---
 
     // Default: Text Field
     return Column(
