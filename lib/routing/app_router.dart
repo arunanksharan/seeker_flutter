@@ -98,9 +98,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         // If they are on splash or auth screen, redirect to home
         if (isSplashRoute || isAuthRoute) {
           logger.d(
-            'Redirect: Authenticated on splash/auth -> Redirecting to home.',
+            'Redirect: Authenticated on splash/auth -> Redirecting to profile.',
           );
-          return AppRoutes.home;
+          return AppRoutes.profile;
         }
         // Otherwise, they can access any other route (including /home, /profile/edit, etc.)
         logger.d(

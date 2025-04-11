@@ -166,8 +166,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: Colors.redAccent,
-          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 1),
         ),
       );
     } else {
@@ -244,16 +244,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // Check if it's the specific account not found error message format
         final isAccountNotFoundError =
             next.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
-        if (!isAccountNotFoundError) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(next.errorMessage!),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
+        // if (!isAccountNotFoundError) {
+        //   if (mounted) {
+        //     ScaffoldMessenger.of(context).showSnackBar(
+        //       SnackBar(
+        //         content: Text(next.errorMessage!),
+        //         backgroundColor: Colors.red,
+        //       ),
+        //     );
+        //   }
+        // }
       }
       // Clear local registration number state if error message changes
       if (_registrationNumberError != null &&
@@ -618,7 +618,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ? authState.errorMessage
             : null;
 
-    // Check specifically for account not found error
+    // // Check specifically for account not found error
     final bool isAccountNotFoundError =
         authState.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
 
@@ -628,6 +628,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     logger.d(
       "_buildOtpForm: isLoading=$isLoading, otpLength=${_otpController.text.length}, isOtpLengthValid=$isOtpLengthValid",
     );
+
+    // String? inlineErrorMessage;
+
+    // if (authState.errorMessage != null) {
+    //   if (!authState.errorMessage!.startsWith("ACCOUNT_NOT_FOUND:")) {
+    //     inlineErrorMessage = authState.errorMessage;
+    //   }
+    // }
 
     return Form(
       key: _formKeyOtp,

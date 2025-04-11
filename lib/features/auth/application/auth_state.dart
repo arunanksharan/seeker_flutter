@@ -231,14 +231,13 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
         isLoading: false,
         errorMessage:
             currentAttempts >= 3
-                ? "Incorrect OTP. Maximum attempts reached. Please request a new OTP."
+                ? "Maximum OTP attempts reached. Please request a new OTP."
                 : "Incorrect OTP. Please try again (${3 - currentAttempts} attempts remaining).",
         status: AuthStatus.unauthenticated,
         authStep: AuthStep.otpInput, // STAY on OTP input
         otpAttempts: currentAttempts, // <-- UPDATE ATTEMPTS
       );
-      _verificationId =
-          null; // Clear verification ID on auth errors too? Maybe not if allowing retry? Keep it for now.
+      // _verificationId = null; // Clear verification ID on auth errors too? Maybe not if allowing retry? Keep it for now.
       return false;
     } on NetworkException catch (e) {
       // Catch specific exception

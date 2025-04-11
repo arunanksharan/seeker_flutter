@@ -1,5 +1,6 @@
 // lib/features/profile/presentation/screens/profile_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:seeker/features/profile/application/profile_notifier.dart';
@@ -580,55 +581,164 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     if (type == 'checkbox') {
-      final bool isFieldEditable =
-          fieldConfig['editable'] ?? true; // Get editable flag from config
-      // Safely get boolean value from data, default to false if null or wrong type
+      final bool isFieldEditable = fieldConfig['editable'] ?? true;
       final bool currentValueBool =
           (currentValue is bool) ? currentValue : false;
-
-      // Determine if the checkbox interaction should be enabled
       final bool canChange = isEditing && isFieldEditable;
 
-      return CheckboxListTile(
-        title: Text(
-          label,
-          // Style to match other field labels or content
-          style: textTheme.bodyMedium?.copyWith(
-            // Grey out label if checkbox cannot be changed currently
-            // color: canChange ? Colors.red : Colors.grey[50],
-            color: Colors.grey[700],
-          ),
+      final theme = Theme.of(context);
+      final textTheme = theme.textTheme;
+      final colorScheme = theme.colorScheme;
+
+      // Define the action to take when the value should change
+      final VoidCallback? onChangeAction =
+          canChange
+              ? () {
+                final newValue = !currentValueBool; // Toggle the value
+                logger.d(
+                  "Checkbox (manual Row) '$key' changed to: '$newValue'",
+                );
+                notifier.updateField(key, newValue); // Update state
+              }
+              : null; // Null if cannot change
+
+      // Build using Row for precise alignment control
+      return InkWell(
+        // Make the whole row tappable if enabled
+        onTap: onChangeAction, // Use the defined action
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            // Checkbox Widget
+            Checkbox(
+              value: currentValueBool,
+              side:
+                  canChange
+                      ? BorderSide(
+                        // Apply custom border when disabled/not changeable
+                        // Using a grey color from your neutral palette
+                        color: colorScheme.primary, // e.g., #BDBDBD
+                        width: 2.0, // Default width is typically 2.0
+                      ) // Use default border color when changeable/enabled
+                      : BorderSide(
+                        // Apply custom border when disabled/not changeable
+                        // Using a grey color from your neutral palette
+                        color: colorScheme.secondary, // e.g., #BDBDBD
+                        width: 2.0, // Default width is typically 2.0
+                      ),
+
+              onChanged:
+                  onChangeAction != null
+                      ? (bool? _) =>
+                          onChangeAction() // Trigger action
+                      : null, // Disable if action is null
+              visualDensity: VisualDensity.compact, // Keep it compact
+              materialTapTargetSize:
+                  MaterialTapTargetSize.shrinkWrap, // Minimize tap area padding
+              activeColor: colorScheme.primary,
+              checkColor: colorScheme.onPrimary,
+              // No explicit padding here, rely on Row alignment
+            ),
+            // Use Expanded for the Text label to fill remaining space
+            Expanded(
+              child: Padding(
+                // Add slight padding between checkbox and text if desired
+                padding: const EdgeInsets.only(left: 4.0), // Adjust as needed
+                child: Text(
+                  label,
+                  style: textTheme.bodyMedium?.copyWith(
+                    // Apply disabled look if needed based on canChange
+                    color: canChange ? Colors.grey[700] : Colors.grey[500],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        value: currentValueBool,
-        onChanged:
-            canChange
-                ? (bool? newValue) {
-                  // Callback only active if canChange is true
-                  if (newValue != null) {
-                    logger.d("Checkbox '$key' changed to: '$newValue'");
-                    notifier.updateField(
-                      key,
-                      newValue,
-                    ); // Update state via notifier
-                  }
-                }
-                : null, // Setting onChanged to null visually disables the checkbox
-        controlAffinity:
-            ListTileControlAffinity.leading, // Checkbox appears first
-        dense: true, // Reduces vertical height
-        visualDensity: VisualDensity.compact,
-        activeColor: colorScheme.primary, // Color when checked
-        checkColor: colorScheme.onPrimary, // Color of the check mark itself
-        // Ensure checkbox looks appropriately disabled visually when canChange is false
-        // tileColor:
-        //     canChange
-        //         ? null
-        //         : theme.disabledColor.withAlpha(
-        //           153,
-        //         ), // Subtle background when disabled
+      );
+    } // End if type == 'checkbox'
+
+    // if (type == 'checkbox') {
+    //   final bool isFieldEditable =
+    //       fieldConfig['editable'] ?? true; // Get editable flag from config
+    //   // Safely get boolean value from data, default to false if null or wrong type
+    //   final bool currentValueBool =
+    //       (currentValue is bool) ? currentValue : false;
+
+    //   // Determine if the checkbox interaction should be enabled
+    //   final bool canChange = isEditing && isFieldEditable;
+
+    //   return CheckboxListTile(
+    //     title: Text(
+    //       label,
+    //       // Style to match other field labels or content
+    //       style: textTheme.bodyMedium?.copyWith(
+    //         // Grey out label if checkbox cannot be changed currently
+    //         // color: canChange ? Colors.red : Colors.grey[50],
+    //         color: Colors.grey[700],
+    //       ),
+    //     ),
+    //     value: currentValueBool,
+    //     onChanged:
+    //         canChange
+    //             ? (bool? newValue) {
+    //               // Callback only active if canChange is true
+    //               if (newValue != null) {
+    //                 logger.d("Checkbox '$key' changed to: '$newValue'");
+    //                 notifier.updateField(
+    //                   key,
+    //                   newValue,
+    //                 ); // Update state via notifier
+    //               }
+    //             }
+    //             : null, // Setting onChanged to null visually disables the checkbox
+    //     controlAffinity:
+    //         ListTileControlAffinity.leading, // Checkbox appears first
+    //     dense: true, // Reduces vertical height
+    //     contentPadding: EdgeInsets.zero,
+    //     visualDensity: VisualDensity.compact,
+    //     activeColor: colorScheme.primary, // Color when checked
+    //     checkColor: colorScheme.onPrimary, // Color of the check mark itself
+    //     // Ensure checkbox looks appropriately disabled visually when canChange is false
+    //     // tileColor:
+    //     //     canChange
+    //     //         ? null
+    //     //         : theme.disabledColor.withAlpha(
+    //     //           153,
+    //     //         ), // Subtle background when disabled
+    //   );
+    // }
+
+    final List<String> nameKeys = [
+      // Only letters and spaces
+      'name',
+      'father_name',
+      'mother_name',
+      'institute_name', // Keeping institute name here for now
+    ];
+    final List<String> locationLanguageKeys = [
+      // Letters, spaces, and commas
+      'preferred_job_location',
+      'languages_spoken',
+    ];
+
+    // Prepare the input formatters list
+    List<TextInputFormatter> inputFormatters = [];
+    if (nameKeys.contains(key)) {
+      // Formatter for names (letters and spaces)
+      inputFormatters.add(
+        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s\u0900-\u097F]')),
+      );
+    } else if (locationLanguageKeys.contains(key)) {
+      // Formatter for locations/languages (letters, spaces, commas)
+      inputFormatters.add(
+        FilteringTextInputFormatter.allow(
+          RegExp(r'[a-zA-Z\s,\u0900-\u097F]'),
+        ), // Added comma
       );
     }
-    // --- END OF ADDED BLOCK ---
+
+    // --- END UPDATED VALIDATION LOGIC ---
 
     // Default: Text Field
     return Column(
@@ -645,6 +755,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           controller: controller,
           enabled: isEditing, // Enable/disable based on edit mode
           keyboardType: keyboard,
+          inputFormatters: isEditing ? inputFormatters : [],
           maxLines: maxLines,
           decoration: InputDecoration(
             hintText: hint,
@@ -666,6 +777,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   (isRequired && (value == null || value.trim().isEmpty))
                       ? 'Please enter $label'
                       : null,
+
           onChanged: (value) {
             logger.d("Field '$key' changed to: '$value'");
             notifier.updateField(key, value); // Update state on change
