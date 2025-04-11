@@ -322,6 +322,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isLoading = authState.isLoading;
     // --- Use authStep from state ---
     final currentAuthStep = authState.authStep;
+    final otpAttempts = authState.otpAttempts;
     // --------------------------------
 
     // Listener defined in initState using _setupListener
@@ -380,6 +381,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             colorScheme,
                             isLoading,
                             authState,
+                            otpAttempts,
                           )
                           : _buildPhoneForm(
                             context,
@@ -601,6 +603,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ColorScheme colorScheme,
     bool isLoading,
     AuthState authState,
+    int otpAttempts,
   ) {
     final currentOtpLength = _otpController.text.length;
     final isButtonEnabled = !isLoading && currentOtpLength == 6;

@@ -4,7 +4,7 @@ import 'package:freezed_annotation/freezed_annotation.dart'; // Need to add free
 import 'package:seeker/models/auth_models.dart'; // Your User model
 import 'package:seeker/services/auth_service.dart';
 import 'package:seeker/services/api_client.dart'; // For dioProvider used in authServiceProvider
-import 'package:seeker/utils/logger.dart'; 
+import 'package:seeker/utils/logger.dart';
 
 import 'package:seeker/core/errors/exceptions.dart';
 
@@ -23,6 +23,7 @@ abstract class AuthState with _$AuthState {
     String? errorMessage, // Any error message during auth process
     @Default(false) bool isLoading, // Indicate loading state
     @Default(AuthStep.unknown) AuthStep authStep,
+    @Default(0) int otpAttempts,
   }) = _AuthState;
 }
 
@@ -40,7 +41,12 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
   // Update a single field in the state
   void updateField(String field, dynamic value) {
     if (field == 'authStep' && value is AuthStep) {
-      state = state.copyWith(authStep: value);
+      final newState = state.copyWith(
+        authStep: value,
+        // Reset attempts if moving back to phone input
+        otpAttempts: (value == AuthStep.phoneInput) ? 0 : state.otpAttempts,
+      );
+      state = newState;
     } else if (field == 'errorMessage' && value is String?) {
       state = state.copyWith(errorMessage: value);
     } else if (field == 'isLoading' && value is bool) {
@@ -61,7 +67,9 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
       Future.delayed(const Duration(seconds: 5), () {
         if (state.status == AuthStatus.unknown && !timeoutReached) {
           timeoutReached = true;
-          logger.w('Auth status check timed out - forcing unauthenticated state');
+          logger.w(
+            'Auth status check timed out - forcing unauthenticated state',
+          );
           state = state.copyWith(
             status: AuthStatus.unauthenticated,
             isLoading: false,
@@ -73,7 +81,7 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
 
       // Check Local Authentication (e.g., token existence)
       final isAuthenticated = await _authService.isAuthenticated();
-      
+
       // If timeout already occurred, don't update state again
       if (timeoutReached) return;
 
@@ -108,7 +116,9 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       logger.e('Error checking auth status', error: e);
       state = state.copyWith(
-        status: AuthStatus.unauthenticated, // Change to unauthenticated instead of unknown
+        status:
+            AuthStatus
+                .unauthenticated, // Change to unauthenticated instead of unknown
         errorMessage: e.toString(),
         isLoading: false,
         authStep: AuthStep.phoneInput,
@@ -121,6 +131,7 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
       isLoading: true,
       errorMessage: null,
       authStep: AuthStep.phoneInput,
+      otpAttempts: 0,
     );
     try {
       _verificationId = await _authService.requestFirebaseOTP(phoneNumber);
@@ -144,11 +155,25 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
 
   // Verify OTP & Login
   Future<bool> verifyFirebaseOtpAndLogin(String smsCode) async {
+    // --- CHECK MAX ATTEMPTS FIRST ---
+    if (state.otpAttempts >= 3) {
+      logger.w("OTP verification blocked: Max attempts reached.");
+      state = state.copyWith(
+        errorMessage: "Maximum OTP attempts reached. Please request a new OTP.",
+        isLoading: false, // Ensure loading is off
+        // Optionally force back to phone input, or keep on OTP screen disabled
+        // authStep: AuthStep.phoneInput,
+      );
+      return false;
+    }
+    // --- END MAX ATTEMPTS CHECK ---
+
     if (_verificationId == null) {
       state = state.copyWith(
         errorMessage: "Verification ID not found. Please request OTP again.",
         // Go back to phone input if error.
         authStep: AuthStep.phoneInput,
+        otpAttempts: 0,
       );
       return false;
     }
@@ -174,11 +199,10 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
           errorMessage: null,
           status: AuthStatus.authenticated,
           user: authResponse.user,
+          otpAttempts: 0,
           // Keep authStep as otpInput since navigation will be handled by router
         );
-        logger.i(
-          "User authenticated successfully: ${authResponse.user.id}",
-        );
+        logger.i("User authenticated successfully: ${authResponse.user.id}");
         return true;
       } else {
         throw const UnexpectedErrorException(
@@ -190,24 +214,31 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
       logger.w("AccountNotFoundException caught: ${e.message}");
       state = state.copyWith(
         isLoading: false,
-        errorMessage: "ACCOUNT_NOT_FOUND: ${e.message}", // Prefix error message for UI to detect
+        errorMessage:
+            "ACCOUNT_NOT_FOUND: ${e.message}", // Prefix error message for UI to detect
         status: AuthStatus.unauthenticated,
         authStep: AuthStep.otpInput, // Stay on OTP input to show the message
       );
       _verificationId = null;
       return false;
     } on InvalidCredentialsException catch (e) {
-      // Catch specific exception
-      logger.w("InvalidCredentialsException caught: ${e.message}");
+      // Catch specific invalid OTP error
+      logger.w(
+        "InvalidCredentialsException caught during OTP verify: ${e.message}",
+      );
+      final currentAttempts = state.otpAttempts + 1; // Increment attempts
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.message, // Use message from exception
+        errorMessage:
+            currentAttempts >= 3
+                ? "Incorrect OTP. Maximum attempts reached. Please request a new OTP."
+                : "Incorrect OTP. Please try again (${3 - currentAttempts} attempts remaining).",
         status: AuthStatus.unauthenticated,
-        authStep:
-            AuthStep
-                .otpInput, // Stay on OTP screen to allow retry? Or phoneInput? Let's stay here for now.
+        authStep: AuthStep.otpInput, // STAY on OTP input
+        otpAttempts: currentAttempts, // <-- UPDATE ATTEMPTS
       );
-      _verificationId = null; // Clear verification ID on auth errors too
+      _verificationId =
+          null; // Clear verification ID on auth errors too? Maybe not if allowing retry? Keep it for now.
       return false;
     } on NetworkException catch (e) {
       // Catch specific exception
@@ -229,15 +260,18 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
         error: e,
         stackTrace: stackTrace,
       );
+      final currentAttempts = state.otpAttempts + 1;
       state = state.copyWith(
         isLoading: false,
         errorMessage:
-            e is AppException
-                ? e.message
-                : 'An unexpected error occurred. Please try again.', // Use message if it's our custom type
+            currentAttempts >= 3
+                ? "Verification failed. Maximum attempts reached. Please request a new OTP."
+                : (e is AppException
+                    ? e.message ?? 'Verification failed. Please try again.'
+                    : 'An unexpected error occurred. Please try again.'),
         status: AuthStatus.unauthenticated,
-        authStep:
-            AuthStep.otpInput, // Default stay on OTP screen for general errors
+        authStep: AuthStep.otpInput, // STAY on OTP input
+        otpAttempts: currentAttempts, // <-- UPDATE ATTEMPTS
       );
       _verificationId = null; // Clear verification ID
       return false;
@@ -252,6 +286,7 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
       state = const AuthState(
         status: AuthStatus.unauthenticated,
         authStep: AuthStep.phoneInput,
+        otpAttempts: 0,
       );
     } catch (e) {
       state = state.copyWith(
@@ -261,6 +296,7 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
         isLoading: false,
         // Ensure step is phone input after logout attempt fails too
         authStep: AuthStep.phoneInput,
+        otpAttempts: 0,
       );
     }
   }

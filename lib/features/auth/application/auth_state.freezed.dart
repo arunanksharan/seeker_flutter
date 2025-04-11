@@ -18,7 +18,7 @@ mixin _$AuthState {
  AuthStatus get status; User? get user;// Logged in user data
  String? get errorMessage;// Any error message during auth process
  bool get isLoading;// Indicate loading state
- AuthStep get authStep;
+ AuthStep get authStep; int get otpAttempts;
 /// Create a copy of AuthState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +29,16 @@ $AuthStateCopyWith<AuthState> get copyWith => _$AuthStateCopyWithImpl<AuthState>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AuthState&&(identical(other.status, status) || other.status == status)&&(identical(other.user, user) || other.user == user)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.authStep, authStep) || other.authStep == authStep));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AuthState&&(identical(other.status, status) || other.status == status)&&(identical(other.user, user) || other.user == user)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.authStep, authStep) || other.authStep == authStep)&&(identical(other.otpAttempts, otpAttempts) || other.otpAttempts == otpAttempts));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,status,user,errorMessage,isLoading,authStep);
+int get hashCode => Object.hash(runtimeType,status,user,errorMessage,isLoading,authStep,otpAttempts);
 
 @override
 String toString() {
-  return 'AuthState(status: $status, user: $user, errorMessage: $errorMessage, isLoading: $isLoading, authStep: $authStep)';
+  return 'AuthState(status: $status, user: $user, errorMessage: $errorMessage, isLoading: $isLoading, authStep: $authStep, otpAttempts: $otpAttempts)';
 }
 
 
@@ -49,7 +49,7 @@ abstract mixin class $AuthStateCopyWith<$Res>  {
   factory $AuthStateCopyWith(AuthState value, $Res Function(AuthState) _then) = _$AuthStateCopyWithImpl;
 @useResult
 $Res call({
- AuthStatus status, User? user, String? errorMessage, bool isLoading, AuthStep authStep
+ AuthStatus status, User? user, String? errorMessage, bool isLoading, AuthStep authStep, int otpAttempts
 });
 
 
@@ -66,14 +66,15 @@ class _$AuthStateCopyWithImpl<$Res>
 
 /// Create a copy of AuthState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? user = freezed,Object? errorMessage = freezed,Object? isLoading = null,Object? authStep = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? user = freezed,Object? errorMessage = freezed,Object? isLoading = null,Object? authStep = null,Object? otpAttempts = null,}) {
   return _then(_self.copyWith(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as AuthStatus,user: freezed == user ? _self.user : user // ignore: cast_nullable_to_non_nullable
 as User?,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
 as String?,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,authStep: null == authStep ? _self.authStep : authStep // ignore: cast_nullable_to_non_nullable
-as AuthStep,
+as AuthStep,otpAttempts: null == otpAttempts ? _self.otpAttempts : otpAttempts // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
@@ -84,7 +85,7 @@ as AuthStep,
 
 
 class _AuthState implements AuthState {
-  const _AuthState({this.status = AuthStatus.unknown, this.user, this.errorMessage, this.isLoading = false, this.authStep = AuthStep.unknown});
+  const _AuthState({this.status = AuthStatus.unknown, this.user, this.errorMessage, this.isLoading = false, this.authStep = AuthStep.unknown, this.otpAttempts = 0});
   
 
 @override@JsonKey() final  AuthStatus status;
@@ -95,6 +96,7 @@ class _AuthState implements AuthState {
 @override@JsonKey() final  bool isLoading;
 // Indicate loading state
 @override@JsonKey() final  AuthStep authStep;
+@override@JsonKey() final  int otpAttempts;
 
 /// Create a copy of AuthState
 /// with the given fields replaced by the non-null parameter values.
@@ -106,16 +108,16 @@ _$AuthStateCopyWith<_AuthState> get copyWith => __$AuthStateCopyWithImpl<_AuthSt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AuthState&&(identical(other.status, status) || other.status == status)&&(identical(other.user, user) || other.user == user)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.authStep, authStep) || other.authStep == authStep));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AuthState&&(identical(other.status, status) || other.status == status)&&(identical(other.user, user) || other.user == user)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.authStep, authStep) || other.authStep == authStep)&&(identical(other.otpAttempts, otpAttempts) || other.otpAttempts == otpAttempts));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,status,user,errorMessage,isLoading,authStep);
+int get hashCode => Object.hash(runtimeType,status,user,errorMessage,isLoading,authStep,otpAttempts);
 
 @override
 String toString() {
-  return 'AuthState(status: $status, user: $user, errorMessage: $errorMessage, isLoading: $isLoading, authStep: $authStep)';
+  return 'AuthState(status: $status, user: $user, errorMessage: $errorMessage, isLoading: $isLoading, authStep: $authStep, otpAttempts: $otpAttempts)';
 }
 
 
@@ -126,7 +128,7 @@ abstract mixin class _$AuthStateCopyWith<$Res> implements $AuthStateCopyWith<$Re
   factory _$AuthStateCopyWith(_AuthState value, $Res Function(_AuthState) _then) = __$AuthStateCopyWithImpl;
 @override @useResult
 $Res call({
- AuthStatus status, User? user, String? errorMessage, bool isLoading, AuthStep authStep
+ AuthStatus status, User? user, String? errorMessage, bool isLoading, AuthStep authStep, int otpAttempts
 });
 
 
@@ -143,14 +145,15 @@ class __$AuthStateCopyWithImpl<$Res>
 
 /// Create a copy of AuthState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? user = freezed,Object? errorMessage = freezed,Object? isLoading = null,Object? authStep = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? user = freezed,Object? errorMessage = freezed,Object? isLoading = null,Object? authStep = null,Object? otpAttempts = null,}) {
   return _then(_AuthState(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as AuthStatus,user: freezed == user ? _self.user : user // ignore: cast_nullable_to_non_nullable
 as User?,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
 as String?,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
 as bool,authStep: null == authStep ? _self.authStep : authStep // ignore: cast_nullable_to_non_nullable
-as AuthStep,
+as AuthStep,otpAttempts: null == otpAttempts ? _self.otpAttempts : otpAttempts // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
