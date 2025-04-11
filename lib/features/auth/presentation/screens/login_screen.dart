@@ -468,21 +468,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             style: textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
           ),
           const SizedBox(height: 8),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            maxLength: 15,
-            enabled: !isLoading,
-            decoration: const InputDecoration(counterText: ""),
-            style: textTheme.bodyLarge,
-            // Use validator with form key
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter your mobile number';
-              }
-              // Basic validation; more robust check happens in _sendOtp before API call
-              return null;
-            },
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.inputDecorationTheme.fillColor,
+                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+                  // border: Border.all(
+                  //   color:
+                  //       theme
+                  //           .inputDecorationTheme
+                  //           .enabledBorder
+                  //           ?.borderSide
+                  //           .color ??
+                  //       Colors.grey[300]!,
+                  // ),
+                ),
+                child: Text('+91', style: textTheme.bodyLarge),
+              ),
+              Expanded(
+                child: TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  enabled: !isLoading,
+                  decoration: const InputDecoration(counterText: ""),
+                  style: textTheme.bodyLarge,
+                  // Use validator with form key
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your mobile number';
+                    }
+                    // Basic validation; more robust check happens in _sendOtp before API call
+                    return null;
+                  },
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
 
@@ -668,7 +694,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 return isOtpLengthValid
                     ? colorScheme
                         .primary // Fully opaque if length is valid
-                    : colorScheme.primary.withAlpha(128); // 50% transparent
+                    : colorScheme.primary.withAlpha(100); // 50% transparent
               }),
               foregroundColor: WidgetStateProperty.all(Colors.white),
               padding: WidgetStateProperty.all(
