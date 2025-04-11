@@ -29,52 +29,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void initState() {
     super.initState();
     _initializeControllers();
+    _setupListener();
+    _otpController.addListener(_otpListener);
     // WidgetsBinding.instance.addPostFrameCallback((_) {
     //   _setupListener();
     //   _initializeControllers(); // Initialize non-auth related controllers if any
     // });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _setupListener();
+      }
+    });
   }
 
   // Listener to handle side-effects like Snackbars or clearing fields
   void _setupListener() {
-    ref.listen<AuthState>(authStateProvider, (previous, next) {
-      // Clear OTP field when authStep changes back to phoneInput
-      if (previous?.authStep == AuthStep.otpInput &&
-          next.authStep == AuthStep.phoneInput) {
-        _otpController.clear();
-      }
+    if (!mounted) return;
+  }
 
-      // Show Snackbars for general errors (not account not found)
-      if (previous?.isLoading == true &&
-          !next.isLoading &&
-          next.errorMessage != null) {
-        // Check if it's the specific account not found error message format
-        final isAccountNotFoundError =
-            next.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
-        if (!isAccountNotFoundError) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(next.errorMessage!),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      }
-      // Clear local registration number state if error message changes
-      if (_registrationNumberError != null &&
-          previous?.errorMessage != next.errorMessage) {
-        if (mounted) {
-          // Re-evaluate based on NEW error message
-          setState(() {
-            _registrationNumberError = _extractRegistrationNumber(
-              next.errorMessage,
-            );
-          });
-        }
-      }
-    });
+  void _otpListener() {
+    // Log changes
+    logger.d(
+      "OTP Controller Listener: text='${_otpController.text}', length=${_otpController.text.length}",
+    );
+    // Crucial: Trigger a rebuild if using controller state directly in button logic
+    // This ensures the button's enabled state re-evaluates when text changes.
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   // Initialize non-auth controllers if any were added
@@ -86,6 +68,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   void dispose() {
+    _otpController.removeListener(_otpListener); // Remove listener
     _phoneController.dispose();
     _otpController.dispose();
     super.dispose();
@@ -137,16 +120,61 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  Future<void> _verifyOtp() async {
-    FocusScope.of(context).unfocus();
-    if (!_formKeyOtp.currentState!.validate()) return; // Use Form validation
+  // Future<void> _verifyOtp() async {
+  //   FocusScope.of(context).unfocus();
+  //   if (!_formKeyOtp.currentState!.validate()) return; // Use Form validation
 
+  //   final String smsCode = _otpController.text.trim();
+  //   // Call notifier action. State change (success/fail/authStep) handled there.
+  //   await ref
+  //       .read(authStateProvider.notifier)
+  //       .verifyFirebaseOtpAndLogin(smsCode);
+  //   // Navigation/Error display is driven by watching/listening to authStateProvider
+  // }
+  Future<void> _verifyOtp() async {
+    // No changes needed in _verifyOtp itself
+    logger.i("_verifyOtp: Function CALLED.");
+    FocusScope.of(context).unfocus();
     final String smsCode = _otpController.text.trim();
-    // Call notifier action. State change (success/fail/authStep) handled there.
-    await ref
-        .read(authStateProvider.notifier)
-        .verifyFirebaseOtpAndLogin(smsCode);
-    // Navigation/Error display is driven by watching/listening to authStateProvider
+    logger.d("_verifyOtp: OTP Code = '$smsCode'");
+    try {
+      logger.d(
+        "_verifyOtp: Calling authStateProvider.notifier.verifyFirebaseOtpAndLogin...",
+      );
+      await ref
+          .read(authStateProvider.notifier)
+          .verifyFirebaseOtpAndLogin(smsCode);
+      logger.d("_verifyOtp: Call to notifier completed.");
+    } catch (e, s) {
+      logger.e(
+        "_verifyOtp: Error calling verifyFirebaseOtpAndLogin!",
+        error: e,
+        stackTrace: s,
+      );
+      final errorMessage = "Verification failed: ${e.toString()}";
+      ref
+          .read(authStateProvider.notifier)
+          .updateField('errorMessage', errorMessage);
+      ref.read(authStateProvider.notifier).updateField('isLoading', false);
+      _showErrorToast("Verification failed. Please try again.");
+    }
+  }
+
+  // Helper function for showing toasts/snackbars
+  void _showErrorToast(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      logger.w(
+        "Tried to show toast, but widget was not mounted. Message: $message",
+      );
+    }
   }
 
   // _callPhoneNumber remains the same
@@ -196,51 +224,98 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final colorScheme = theme.colorScheme;
 
     ref.listen<AuthState>(authStateProvider, (previous, next) {
-      // --- CHANGE 4: Added safety check inside listener callback ---
-      if (!mounted) return; // Exit if widget is no longer in the tree
-
+      if (!mounted) {
+        logger.w("AuthState listener fired but widget is no longer mounted.");
+        return;
+      }
       logger.d(
-        "Listener triggered: Prev step=${previous?.authStep}, Next step=${next.authStep}",
+        "Listener triggered: Prev step=${previous?.authStep}, Next step=${next.authStep}, isLoading=${next.isLoading}, error=${next.errorMessage}",
       );
-      // ... (rest of your listener logic: clearing OTP, showing SnackBars, setting _registrationNumberError state) ...
-
-      // Example: Clear OTP field when authStep changes back to phoneInput
+      // Clear OTP field when authStep changes back to phoneInput
       if (previous?.authStep == AuthStep.otpInput &&
           next.authStep == AuthStep.phoneInput) {
-        logger.d("Clearing OTP controller");
         _otpController.clear();
       }
 
-      // Example: Show Snackbars for general errors
+      // Show Snackbars for general errors (not account not found)
       if (previous?.isLoading == true &&
           !next.isLoading &&
           next.errorMessage != null) {
+        // Check if it's the specific account not found error message format
         final isAccountNotFoundError =
             next.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
         if (!isAccountNotFoundError) {
-          logger.d("Showing general error SnackBar");
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(next.errorMessage!),
-              backgroundColor: Colors.red,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(next.errorMessage!),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       }
-
-      // Example: Update local state based on error message changes
-      final newRegError = _extractRegistrationNumber(next.errorMessage);
-      if (_registrationNumberError != newRegError) {
-        logger.d(
-          "Updating registration number error state from '$_registrationNumberError' to '$newRegError'",
-        );
-        // Note: setState is safe here because it's called from the listener callback,
-        // not directly during the build phase, and we checked 'mounted'.
-        setState(() {
-          _registrationNumberError = newRegError;
-        });
+      // Clear local registration number state if error message changes
+      if (_registrationNumberError != null &&
+          previous?.errorMessage != next.errorMessage) {
+        if (mounted) {
+          // Re-evaluate based on NEW error message
+          setState(() {
+            _registrationNumberError = _extractRegistrationNumber(
+              next.errorMessage,
+            );
+          });
+        }
       }
     });
+    logger.d("AuthState listener setup complete.");
+
+    // ref.listen<AuthState>(authStateProvider, (previous, next) {
+    //   // --- CHANGE 4: Added safety check inside listener callback ---
+    //   if (!mounted) return; // Exit if widget is no longer in the tree
+
+    //   logger.d(
+    //     "Listener triggered: Prev step=${previous?.authStep}, Next step=${next.authStep}",
+    //   );
+    //   // ... (rest of your listener logic: clearing OTP, showing SnackBars, setting _registrationNumberError state) ...
+
+    //   // Example: Clear OTP field when authStep changes back to phoneInput
+    //   if (previous?.authStep == AuthStep.otpInput &&
+    //       next.authStep == AuthStep.phoneInput) {
+    //     logger.d("Clearing OTP controller");
+    //     _otpController.clear();
+    //   }
+
+    //   // Example: Show Snackbars for general errors
+    //   if (previous?.isLoading == true &&
+    //       !next.isLoading &&
+    //       next.errorMessage != null) {
+    //     final isAccountNotFoundError =
+    //         next.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
+    //     if (!isAccountNotFoundError) {
+    //       logger.d("Showing general error SnackBar");
+    //       ScaffoldMessenger.of(context).showSnackBar(
+    //         SnackBar(
+    //           content: Text(next.errorMessage!),
+    //           backgroundColor: Colors.red,
+    //         ),
+    //       );
+    //     }
+    //   }
+
+    //   // Example: Update local state based on error message changes
+    //   final newRegError = _extractRegistrationNumber(next.errorMessage);
+    //   if (_registrationNumberError != newRegError) {
+    //     logger.d(
+    //       "Updating registration number error state from '$_registrationNumberError' to '$newRegError'",
+    //     );
+    //     // Note: setState is safe here because it's called from the listener callback,
+    //     // not directly during the build phase, and we checked 'mounted'.
+    //     setState(() {
+    //       _registrationNumberError = newRegError;
+    //     });
+    //   }
+    // });
 
     // Watch the full auth state
     final authState = ref.watch(authStateProvider);
@@ -501,6 +576,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     bool isLoading,
     AuthState authState,
   ) {
+    final currentOtpLength = _otpController.text.length;
+    final isButtonEnabled = !isLoading && currentOtpLength == 6;
+    logger.d(
+      "_buildOtpForm: isLoading=$isLoading, otpLength=$currentOtpLength, isButtonEnabled=$isButtonEnabled",
+    );
     // Get general OTP error message (not account not found)
     final otpErrorMessage =
         (authState.errorMessage != null &&
@@ -512,6 +592,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Check specifically for account not found error
     final bool isAccountNotFoundError =
         authState.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
+
+    // Determine if OTP length is currently valid (exactly 6)
+    final bool isOtpLengthValid = _otpController.text.trim().length == 6;
+
+    logger.d(
+      "_buildOtpForm: isLoading=$isLoading, otpLength=${_otpController.text.length}, isOtpLengthValid=$isOtpLengthValid",
+    );
 
     return Form(
       key: _formKeyOtp,
@@ -539,6 +626,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               counterText: "",
             ),
             // Use validator with form key
+            // onChanged: (value) {
+            //   logger.d(
+            //     "OTP TextFormField onChanged: '$value', length=${value.length}",
+            //   );
+            //   // Force rebuild when length changes - helps isolate if rebuild is the issue
+            //   if (mounted) {
+            //     setState(() {});
+            //   }
+            // },
             validator: (value) {
               if (value == null || value.trim().length != 6) {
                 return 'Enter 6 digits';
@@ -562,11 +658,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ElevatedButton(
             // Validate form before calling _verifyOtp
             style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.resolveWith<Color>((
-                Set<WidgetState> states,
+              backgroundColor: WidgetStateProperty.resolveWith<Color?>((
+                states,
               ) {
-                // Always return primary color, even when disabled
-                return colorScheme.primary;
+                if (states.contains(WidgetState.disabled)) {
+                  // Make disabled state more obvious if needed
+                  return colorScheme.primary.withAlpha(100);
+                }
+                return isOtpLengthValid
+                    ? colorScheme
+                        .primary // Fully opaque if length is valid
+                    : colorScheme.primary.withAlpha(128); // 50% transparent
               }),
               foregroundColor: WidgetStateProperty.all(Colors.white),
               padding: WidgetStateProperty.all(
@@ -577,10 +679,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
             onPressed:
-                (isLoading || _otpController.text.length != 6)
+                isLoading // Only disable if currently loading
                     ? null
                     : () {
-                      if (_formKeyOtp.currentState!.validate()) _verifyOtp();
+                      // Button is always enabled otherwise
+                      logger.i("Verify OTP Button: PRESSED!");
+                      final currentOtp = _otpController.text.trim();
+
+                      // Check length BEFORE trying to validate/verify
+                      if (currentOtp.length < 6) {
+                        logger.w(
+                          "Verify OTP Button: Pressed with invalid length (${currentOtp.length}). Showing SnackBar.",
+                        );
+                        // Remove any existing snackbar first
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        // Show the length error snackbar
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('OTP must be 6 digits.'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                        return; // Stop processing
+                      }
+
+                      // Length is 6, proceed with validation and verification
+                      logger.d(
+                        "Verify OTP Button: Length is valid. Proceeding with form validation...",
+                      );
+                      // Use form validation (optional but good practice if validator exists)
+                      if (_formKeyOtp.currentState?.validate() ?? false) {
+                        logger.d(
+                          "Verify OTP Button: Form valid, calling _verifyOtp()...",
+                        );
+                        _verifyOtp(); // Call the actual verification function
+                      } else {
+                        // This might happen if validator has other rules,
+                        // or if state is somehow inconsistent.
+                        logger.w(
+                          "Verify OTP Button: Length valid but form validation failed.",
+                        );
+                        // Optionally show the validator's error message via snackbar again
+                        // _showErrorToast(_formKeyOtp.currentState?.validate() ?? "Validation error");
+                      }
                     },
             child:
                 isLoading

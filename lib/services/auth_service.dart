@@ -30,7 +30,7 @@ class AuthService {
       // Add reCAPTCHA verification for web/android
       await _firebaseAuth.verifyPhoneNumber(
         phoneNumber: formattedNumber,
-        timeout: const Duration(seconds: 60),
+        timeout: const Duration(seconds: 119),
         verificationCompleted: (fb_auth.PhoneAuthCredential credential) async {
           logger.i('Firebase verification completed automatically.');
           // Optional: Handle auto-retrieval if desired
