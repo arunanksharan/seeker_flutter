@@ -37,9 +37,10 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   // Merges data from nested fields into the flat map if current_profile is missing keys.
   Future<void> _loadInitialData() async {
     // Ensure we only load once unless invalidated
-    if (state.dataLoadAttempted) return;
+    if (state.dataLoadAttempted && !state.isLoading) return;
 
     logger.d("ProfileNotifier: Starting _loadInitialData()");
+
     state = state.copyWith(
       isLoading: true,
       errorMessage: null,
@@ -50,31 +51,6 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       final profileApiResponse = await _ref.read(profileProvider.future);
 
       if (profileApiResponse != null) {
-        logger.d(
-          "ProfileNotifier: Profile API response received: ${profileApiResponse.id}, ${profileApiResponse.seekerId}, ${profileApiResponse.currentProfile}",
-        );
-
-        // Debug the API response to see what's coming from the backend
-        logger.d("ProfileNotifier: API response ID: ${profileApiResponse.id}");
-        logger.d(
-          "ProfileNotifier: API response seekerId: ${profileApiResponse.seekerId}",
-        );
-        logger.d(
-          "ProfileNotifier: Has personalDetails: ${profileApiResponse.personalDetails != null}",
-        );
-        logger.d(
-          "ProfileNotifier: Has contactDetails: ${profileApiResponse.contactDetails != null}",
-        );
-        logger.d(
-          "ProfileNotifier: Has currentProfile: ${profileApiResponse.currentProfile != null}",
-        );
-        if (profileApiResponse.currentProfile != null) {
-          logger.d(
-            "ProfileNotifier: currentProfile keys: ${profileApiResponse.currentProfile!.keys.toList()}",
-          );
-        }
-
-        // Create initialData map - IMPORTANT FIX: Check if currentProfile is null before using it
         Map<String, dynamic> initialData =
             profileApiResponse.currentProfile != null
                 ? Map<String, dynamic>.from(profileApiResponse.currentProfile!)
@@ -82,17 +58,12 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
 
         logger.d("Initial data from current_profile: $initialData");
 
-        // --- Merge/Default values from nested structures if needed ---
-
         final itiVerifiedValue = initialData['iti_verified'];
         if (itiVerifiedValue != null) {
           if (itiVerifiedValue is String) {
             // If it's a string, convert "true" to bool true, otherwise false
             initialData['iti_verified'] =
                 (itiVerifiedValue.toLowerCase() == 'true');
-            logger.d(
-              "Corrected 'iti_verified' from String to bool: ${initialData['iti_verified']}",
-            );
           } else if (itiVerifiedValue is bool) {
             // Already a bool, no change needed
             logger.d("'iti_verified' is already bool: $itiVerifiedValue");
@@ -229,6 +200,171 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       state = state.copyWith(
         isLoading: false,
         errorMessage: "Failed to load profile: ${e.toString()}",
+        dataLoaded: false,
+      );
+    }
+  }
+
+  Future<void> reloadData() async {
+    logger.d("ProfileNotifier: Reloading data explicitly...");
+    // Reset load attempt flag maybe? Or just rely on isLoading. Let's just set loading.
+    logger.d("ProfileNotifier: Starting ReloadData()");
+
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    logger.d("ProfileNotifier: Loading initial data...");
+    try {
+      final profileApiResponse = await _ref.read(profileProvider.future);
+
+      if (profileApiResponse != null) {
+        Map<String, dynamic> freshData =
+            profileApiResponse.currentProfile != null
+                ? Map<String, dynamic>.from(profileApiResponse.currentProfile!)
+                : <String, dynamic>{};
+
+        logger.d("Initial data from current_profile: $freshData");
+
+        final itiVerifiedValue = freshData['iti_verified'];
+        if (itiVerifiedValue != null) {
+          if (itiVerifiedValue is String) {
+            // If it's a string, convert "true" to bool true, otherwise false
+            freshData['iti_verified'] =
+                (itiVerifiedValue.toLowerCase() == 'true');
+          } else if (itiVerifiedValue is bool) {
+            // Already a bool, no change needed
+            logger.d("'iti_verified' is already bool: $itiVerifiedValue");
+          } else {
+            // Handle other unexpected types if necessary, default to false
+            logger.w(
+              "Unexpected type for 'iti_verified': ${itiVerifiedValue.runtimeType}, defaulting to false.",
+            );
+            freshData['iti_verified'] = false;
+          }
+        } else {
+          // Handle null case if needed, default to false
+          logger.d(
+            "'iti_verified' key not found or null, defaulting to false.",
+          );
+          freshData['iti_verified'] = false;
+        }
+
+        // Correct 'user_consent'
+        final userConsentValue = freshData['user_consent'];
+        if (userConsentValue != null) {
+          if (userConsentValue is String) {
+            freshData['user_consent'] =
+                (userConsentValue.toLowerCase() == 'true');
+            logger.d(
+              "Corrected 'user_consent' from String to bool: ${freshData['user_consent']}",
+            );
+          } else if (userConsentValue is bool) {
+            logger.d("'user_consent' is already bool: $userConsentValue");
+          } else {
+            logger.w(
+              "Unexpected type for 'user_consent': ${userConsentValue.runtimeType}, defaulting to false.",
+            );
+            freshData['user_consent'] = false;
+          }
+        } else {
+          logger.d(
+            "'user_consent' key not found or null, defaulting to false.",
+          );
+          freshData['user_consent'] = false;
+        }
+        // --- *** END
+        final pd = profileApiResponse.personalDetails;
+        if (pd != null) {
+          logger.d("ProfileNotifier: Adding personalDetails to freshData");
+          // Only add if not already present in currentProfile
+          freshData.putIfAbsent('name', () => pd.name);
+          freshData.putIfAbsent('father_name', () => pd.fatherName);
+          freshData.putIfAbsent('mother_name', () => pd.motherName);
+          freshData.putIfAbsent('gender', () => pd.gender);
+          freshData.putIfAbsent('dob', () => pd.dob);
+        }
+        final cd = profileApiResponse.contactDetails;
+        if (cd != null) {
+          freshData.putIfAbsent(
+            'hometown_and_locality',
+            () => cd.currentAddress?.street ?? cd.permanentAddress?.street,
+          );
+          freshData.putIfAbsent('primary_mobile', () => cd.primaryMobile);
+          freshData.putIfAbsent('email', () => cd.email);
+        }
+        final iti =
+            profileApiResponse.itiDetails?.isNotEmpty == true
+                ? profileApiResponse.itiDetails!.first
+                : null;
+        if (iti != null) {
+          freshData.putIfAbsent('institute_name', () => iti.instituteName);
+          freshData.putIfAbsent('trade', () => iti.trade);
+          freshData.putIfAbsent(
+            'training_duration',
+            () => iti.trainingDuration,
+          );
+          freshData.putIfAbsent(
+            'state_registration_number',
+            () => iti.rollNumber,
+          );
+        }
+        final jp = profileApiResponse.jobPreferences;
+        if (jp != null) {
+          freshData.putIfAbsent(
+            'preferred_job_location',
+            () => jp.preferredJobLocations,
+          );
+          freshData.putIfAbsent('current_location', () => jp.currentLocation);
+          freshData.putIfAbsent(
+            'total_experience_years',
+            () => jp.totalExperienceYears,
+          );
+          freshData.putIfAbsent(
+            'current_monthly_salary',
+            () => jp.currentMonthlySalary,
+          );
+          freshData.putIfAbsent(
+            'expected_monthly_salary',
+            () => jp.maxSalaryExpectation,
+          );
+        }
+        final languages = profileApiResponse.languageProficiencies;
+        if (languages != null && languages.isNotEmpty) {
+          freshData.putIfAbsent(
+            'languages_spoken',
+            () => languages.map((l) => l.language).join(', '),
+          );
+        }
+
+        // Update state with loaded data
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: null,
+          id: profileApiResponse.id,
+          seekerId: profileApiResponse.seekerId,
+          profileData: freshData,
+          dataLoaded: true,
+        );
+        logger.d(
+          "ProfileNotifier: Data loaded successfully with ${freshData.length} fields.",
+        );
+      } else {
+        // Handle case where profile doesn't exist yet
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: null, // No error, just empty profile
+          profileData: <String, dynamic>{},
+          dataLoaded: true, // Mark as loaded, just empty
+        );
+        logger.d("ProfileNotifier: No profile data exists yet.");
+      }
+    } catch (e, stackTrace) {
+      logger.e(
+        "ProfileNotifier: Error loading profile data",
+        error: e,
+        stackTrace: stackTrace,
+      );
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: "Failed to refresh profile: ${e.toString()}",
         dataLoaded: false,
       );
     }

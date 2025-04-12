@@ -445,10 +445,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          // Force a refresh of the profile data
+          logger.d("Pull-to-refresh triggered");
+          // 1. Invalidate the provider to clear its cache
           ref.invalidate(profileProvider);
-          await ref.read(profileProvider.future);
-          _initializeFormFields();
+          logger.d("Invalidated profileProvider");
+          await ref.read(profileNotifierProvider.notifier).reloadData();
+          logger.d("Called notifier.reloadData() and awaited");
+          // _initializeFormFields();
         },
         child: GestureDetector(
           onTap: () => FocusScope.of(context).unfocus(),
