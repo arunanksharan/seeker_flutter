@@ -83,6 +83,58 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         logger.d("Initial data from current_profile: $initialData");
 
         // --- Merge/Default values from nested structures if needed ---
+
+        final itiVerifiedValue = initialData['iti_verified'];
+        if (itiVerifiedValue != null) {
+          if (itiVerifiedValue is String) {
+            // If it's a string, convert "true" to bool true, otherwise false
+            initialData['iti_verified'] =
+                (itiVerifiedValue.toLowerCase() == 'true');
+            logger.d(
+              "Corrected 'iti_verified' from String to bool: ${initialData['iti_verified']}",
+            );
+          } else if (itiVerifiedValue is bool) {
+            // Already a bool, no change needed
+            logger.d("'iti_verified' is already bool: $itiVerifiedValue");
+          } else {
+            // Handle other unexpected types if necessary, default to false
+            logger.w(
+              "Unexpected type for 'iti_verified': ${itiVerifiedValue.runtimeType}, defaulting to false.",
+            );
+            initialData['iti_verified'] = false;
+          }
+        } else {
+          // Handle null case if needed, default to false
+          logger.d(
+            "'iti_verified' key not found or null, defaulting to false.",
+          );
+          initialData['iti_verified'] = false;
+        }
+
+        // Correct 'user_consent'
+        final userConsentValue = initialData['user_consent'];
+        if (userConsentValue != null) {
+          if (userConsentValue is String) {
+            initialData['user_consent'] =
+                (userConsentValue.toLowerCase() == 'true');
+            logger.d(
+              "Corrected 'user_consent' from String to bool: ${initialData['user_consent']}",
+            );
+          } else if (userConsentValue is bool) {
+            logger.d("'user_consent' is already bool: $userConsentValue");
+          } else {
+            logger.w(
+              "Unexpected type for 'user_consent': ${userConsentValue.runtimeType}, defaulting to false.",
+            );
+            initialData['user_consent'] = false;
+          }
+        } else {
+          logger.d(
+            "'user_consent' key not found or null, defaulting to false.",
+          );
+          initialData['user_consent'] = false;
+        }
+        // --- *** END
         final pd = profileApiResponse.personalDetails;
         if (pd != null) {
           logger.d("ProfileNotifier: Adding personalDetails to initialData");
