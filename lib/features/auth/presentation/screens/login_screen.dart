@@ -270,53 +270,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
     logger.d("AuthState listener setup complete.");
 
-    // ref.listen<AuthState>(authStateProvider, (previous, next) {
-    //   // --- CHANGE 4: Added safety check inside listener callback ---
-    //   if (!mounted) return; // Exit if widget is no longer in the tree
-
-    //   logger.d(
-    //     "Listener triggered: Prev step=${previous?.authStep}, Next step=${next.authStep}",
-    //   );
-    //   // ... (rest of your listener logic: clearing OTP, showing SnackBars, setting _registrationNumberError state) ...
-
-    //   // Example: Clear OTP field when authStep changes back to phoneInput
-    //   if (previous?.authStep == AuthStep.otpInput &&
-    //       next.authStep == AuthStep.phoneInput) {
-    //     logger.d("Clearing OTP controller");
-    //     _otpController.clear();
-    //   }
-
-    //   // Example: Show Snackbars for general errors
-    //   if (previous?.isLoading == true &&
-    //       !next.isLoading &&
-    //       next.errorMessage != null) {
-    //     final isAccountNotFoundError =
-    //         next.errorMessage?.startsWith("ACCOUNT_NOT_FOUND:") ?? false;
-    //     if (!isAccountNotFoundError) {
-    //       logger.d("Showing general error SnackBar");
-    //       ScaffoldMessenger.of(context).showSnackBar(
-    //         SnackBar(
-    //           content: Text(next.errorMessage!),
-    //           backgroundColor: Colors.red,
-    //         ),
-    //       );
-    //     }
-    //   }
-
-    //   // Example: Update local state based on error message changes
-    //   final newRegError = _extractRegistrationNumber(next.errorMessage);
-    //   if (_registrationNumberError != newRegError) {
-    //     logger.d(
-    //       "Updating registration number error state from '$_registrationNumberError' to '$newRegError'",
-    //     );
-    //     // Note: setState is safe here because it's called from the listener callback,
-    //     // not directly during the build phase, and we checked 'mounted'.
-    //     setState(() {
-    //       _registrationNumberError = newRegError;
-    //     });
-    //   }
-    // });
-
     // Watch the full auth state
     final authState = ref.watch(authStateProvider);
     final isLoading = authState.isLoading;
@@ -492,6 +445,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 child: Text('+91', style: textTheme.bodyLarge),
               ),
+              const SizedBox(width: 4),
               Expanded(
                 child: TextFormField(
                   controller: _phoneController,
@@ -514,47 +468,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           const SizedBox(height: 16),
 
-          // --- Refined Inline Error Display ---
-          // Show specific "Account not found" error inline
-          // if (inlineErrorMessage != null)
-          //   Padding(
-          //     padding: const EdgeInsets.only(bottom: 16.0),
-          //     child: Text.rich(
-          //       TextSpan(
-          //         style: textTheme.bodyMedium?.copyWith(
-          //           color: colorScheme.error,
-          //         ),
-          //         children: [
-          //           // Show text before number placeholder
-          //           TextSpan(
-          //             text:
-          //                 inlineErrorMessage
-          //                     .replaceFirst("ACCOUNT_NOT_FOUND:", "")
-          //                     .split(' Please call')[0]
-          //                     .trim(),
-          //           ),
-          //           // Show clickable number if extracted
-          //           if (_registrationNumberError != null)
-          //             TextSpan(
-          //               text: " Call $_registrationNumberError",
-          //               style: TextStyle(
-          //                 color: colorScheme.primary,
-          //                 fontWeight: FontWeight.bold,
-          //               ),
-          //               recognizer:
-          //                   TapGestureRecognizer()
-          //                     ..onTap =
-          //                         () => _callPhoneNumber(
-          //                           _registrationNumberError!,
-          //                         ),
-          //             ),
-          //         ],
-          //       ),
-          //       textAlign: TextAlign.center,
-          //     ),
-          //   ),
-
-          // // --- ---------------------------- ---
           ElevatedButton(
             // Validate form before calling _sendOtp
             style: ButtonStyle(
@@ -629,14 +542,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       "_buildOtpForm: isLoading=$isLoading, otpLength=${_otpController.text.length}, isOtpLengthValid=$isOtpLengthValid",
     );
 
-    // String? inlineErrorMessage;
-
-    // if (authState.errorMessage != null) {
-    //   if (!authState.errorMessage!.startsWith("ACCOUNT_NOT_FOUND:")) {
-    //     inlineErrorMessage = authState.errorMessage;
-    //   }
-    // }
-
     return Form(
       key: _formKeyOtp,
       child: Column(
@@ -662,16 +567,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               hintText: '- - - - - -',
               counterText: "",
             ),
-            // Use validator with form key
-            // onChanged: (value) {
-            //   logger.d(
-            //     "OTP TextFormField onChanged: '$value', length=${value.length}",
-            //   );
-            //   // Force rebuild when length changes - helps isolate if rebuild is the issue
-            //   if (mounted) {
-            //     setState(() {});
-            //   }
-            // },
+
             validator: (value) {
               if (value == null || value.trim().length != 6) {
                 return 'Enter 6 digits';
