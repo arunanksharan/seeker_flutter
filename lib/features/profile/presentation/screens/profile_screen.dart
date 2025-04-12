@@ -25,7 +25,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // List of fields to display/edit based on your flat structure
   // Adjust this list based on EXACTLY what fields you want to show/edit
   final List<Map<String, dynamic>> _formFields = [
-    {'key': 'name', 'label': 'Name', 'required': true},
+    {'key': 'name', 'label': 'Name*', 'required': true},
     {'key': 'father_name', 'label': "Father's Name"},
     {'key': 'mother_name', 'label': "Mother's Name"},
     {
@@ -46,7 +46,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }, // Maps to Address
     {
       'key': 'state_registration_number',
-      'label': 'NCVT Roll No.',
+      'label': 'NCVT Roll No.*',
       'required': true,
     }, // ITI
     {'key': 'institute_name', 'label': 'Institute Name'}, // ITI
@@ -85,14 +85,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       'type': 'checkbox',
       'editable': true, // This one can be changed by the user
     },
-    {
-      'key': 'iti_verified',
-      'label': 'ITI Verified Status', // Example Label
-      'type': 'checkbox',
-      'editable': false, // This one cannot be changed by the user
-    },
-    // Add other fields from your flat structure here...
-    // {'key': 'skills', 'label': 'Skills', 'type': 'chips'}, // Example for chips
   ];
 
   @override
@@ -225,17 +217,73 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   // Save Form action
   void _saveForm() {
-    if (_formKey.currentState!.validate()) {
-      FocusScope.of(context).unfocus();
-      ref
-          .read(profileNotifierProvider.notifier)
-          .saveProfile(); // Save triggers state update
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please fix errors.')));
+    FocusScope.of(context).unfocus();
+    // Step 1: Run standard validation FIRST to show inline errors
+    final bool isFormValid = _formKey.currentState?.validate() ?? false;
+    // Step 2: Check if validation failed
+    if (!isFormValid) {
+      logger.w("Form validation failed. Inline errors should be visible.");
+
+      // Step 3: Find the FIRST specific error message for the SnackBar
+      String? firstErrorMessage;
+      for (var fieldConfig in _formFields) {
+        final String key = fieldConfig['key'];
+        final bool isRequired = fieldConfig['required'] ?? false;
+        final String type = fieldConfig['type'] ?? 'text';
+
+        // Check required text-based fields (add other types if needed)
+        if (isRequired && (type == 'text' || type == 'date')) {
+          final controller = _controllers[key];
+          if (controller != null && controller.text.trim().isEmpty) {
+            final String label = fieldConfig['label'];
+            firstErrorMessage = 'Please enter $label'; // Specific message
+            break; // Found the first error, stop searching
+          }
+        }
+        // Add checks for other required types (e.g., gender) if needed
+        // else if (isRequired && type == 'gender') { ... }
+      }
+
+      // Step 4: Show the first specific error in the SnackBar
+      // Clear previous snackbars first
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      if (firstErrorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(firstErrorMessage),
+            backgroundColor:
+                Theme.of(context).colorScheme.error, // Use theme color
+          ),
+        );
+      } else {
+        // Fallback SnackBar if validate failed but no specific error found in loop
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Please review the errors highlighted above.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+
+      return; // Stop the save process
     }
+
+    // Step 5: Proceed to save if form is valid
+    logger.i("Form validation passed. Proceeding to save.");
+    ref.read(profileNotifierProvider.notifier).saveProfile(); // Proceed to save
   }
+
+  //   if (_formKey.currentState!.validate()) {
+  //     FocusScope.of(context).unfocus();
+  //     ref
+  //         .read(profileNotifierProvider.notifier)
+  //         .saveProfile(); // Save triggers state update
+  //   } else {
+  //     ScaffoldMessenger.of(
+  //       context,
+  //     ).showSnackBar(const SnackBar(content: Text('Please fix errors.')));
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -291,6 +339,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     }
 
+    final bool isItiVerified =
+        (state.profileData['iti_verified'] is bool)
+            ? state.profileData['iti_verified'] as bool
+            : false; // Default to false if null or wrong type
+    logger.d("isItiVerified: $isItiVerified");
+    logger.d("profileData: ${state.profileData}");
+
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
@@ -300,12 +355,71 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         centerTitle: false,
 
         title: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
-          child: Text(
-            state.isEditing ? 'Edit Profile' : 'View Profile',
-            style: textTheme.headlineMedium,
+          padding: const EdgeInsets.only(
+            left: 16.0,
+          ), // Keep overall left padding
+          child: Row(
+            // <-- Wrap title elements in a Row
+            mainAxisSize: MainAxisSize.min, // Row takes minimum space needed
+            children: [
+              // Original Title Text
+              Text(
+                state.isEditing ? 'Edit Profile' : 'View Profile',
+                style: textTheme.headlineMedium,
+              ),
+              const SizedBox(width: 32), // Space between title and status
+              // --- ADDED: Conditional Status Indicator ---
+              if (isItiVerified) // Condition for VERIFIED
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.check_circle, // Green checkmark icon
+                      color: AppColors.success, // Use SUCCESS color (Green)
+                      size: 18, // Adjust size as needed
+                    ),
+                    const SizedBox(width: 4), // Space between icon and text
+                    Text(
+                      'Verified',
+                      style: textTheme.bodyMedium?.copyWith(
+                        // Adjust style as needed
+                        color: AppColors.success, // Use SUCCESS color
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                )
+              else // Condition for UNVERIFIED
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline, // Orange exclamation icon
+                      color: AppColors.warning, // Use WARNING color (Orange)
+                      size: 18, // Adjust size as needed
+                    ),
+                    const SizedBox(width: 4), // Space between icon and text
+                    Text(
+                      'Unverified',
+                      style: textTheme.bodyMedium?.copyWith(
+                        // Adjust style as needed
+                        color: AppColors.warning, // Use WARNING color
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              // --- END: Conditional Status Indicator ---
+            ],
           ),
-        ),
+        ), // End Padding wrapping the row
+        // title: Padding(
+        //   padding: const EdgeInsets.only(left: 16.0),
+        //   child: Text(
+        //     state.isEditing ? 'Edit Profile' : 'View Profile',
+        //     style: textTheme.headlineMedium,
+        //   ),
+        // ),
         actions: [
           // Toggle Edit/Cancel Button
           if (state.dataLoaded) // Show only if data loaded ok
@@ -603,111 +717,66 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               : null; // Null if cannot change
 
       // Build using Row for precise alignment control
-      return InkWell(
-        // Make the whole row tappable if enabled
-        onTap: onChangeAction, // Use the defined action
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            // Checkbox Widget
-            Checkbox(
-              value: currentValueBool,
-              side:
-                  canChange
-                      ? BorderSide(
-                        // Apply custom border when disabled/not changeable
-                        // Using a grey color from your neutral palette
-                        color: colorScheme.primary, // e.g., #BDBDBD
-                        width: 2.0, // Default width is typically 2.0
-                      ) // Use default border color when changeable/enabled
-                      : BorderSide(
-                        // Apply custom border when disabled/not changeable
-                        // Using a grey color from your neutral palette
-                        color: colorScheme.secondary, // e.g., #BDBDBD
-                        width: 2.0, // Default width is typically 2.0
-                      ),
+      return Transform.translate(
+        // Adjust the negative Offset dx value to control how far left it moves
+        // Start with a value like -8.0 or -12.0 and adjust as needed.
+        offset: const Offset(-6.0, 0.0),
+        child: InkWell(
+          // Make the whole row tappable if enabled
+          onTap: onChangeAction, // Use the defined action
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              // Checkbox Widget
+              Checkbox(
+                value: currentValueBool,
+                side:
+                    canChange
+                        ? BorderSide(
+                          // Apply custom border when disabled/not changeable
+                          // Using a grey color from your neutral palette
+                          color: colorScheme.primary, // e.g., #BDBDBD
+                          width: 2.0, // Default width is typically 2.0
+                        ) // Use default border color when changeable/enabled
+                        : BorderSide(
+                          // Apply custom border when disabled/not changeable
+                          // Using a grey color from your neutral palette
+                          color: colorScheme.secondary, // e.g., #BDBDBD
+                          width: 2.0, // Default width is typically 2.0
+                        ),
 
-              onChanged:
-                  onChangeAction != null
-                      ? (bool? _) =>
-                          onChangeAction() // Trigger action
-                      : null, // Disable if action is null
-              visualDensity: VisualDensity.compact, // Keep it compact
-              materialTapTargetSize:
-                  MaterialTapTargetSize.shrinkWrap, // Minimize tap area padding
-              activeColor: colorScheme.primary,
-              checkColor: colorScheme.onPrimary,
-              // No explicit padding here, rely on Row alignment
-            ),
-            // Use Expanded for the Text label to fill remaining space
-            Expanded(
-              child: Padding(
-                // Add slight padding between checkbox and text if desired
-                padding: const EdgeInsets.only(left: 4.0), // Adjust as needed
-                child: Text(
-                  label,
-                  style: textTheme.bodyMedium?.copyWith(
-                    // Apply disabled look if needed based on canChange
-                    color: canChange ? Colors.grey[700] : Colors.grey[500],
+                onChanged:
+                    onChangeAction != null
+                        ? (bool? _) =>
+                            onChangeAction() // Trigger action
+                        : null, // Disable if action is null
+                visualDensity: VisualDensity.compact, // Keep it compact
+                materialTapTargetSize:
+                    MaterialTapTargetSize
+                        .shrinkWrap, // Minimize tap area padding
+                activeColor: colorScheme.primary,
+                checkColor: colorScheme.onPrimary,
+                // No explicit padding here, rely on Row alignment
+              ),
+              // Use Expanded for the Text label to fill remaining space
+              Expanded(
+                child: Padding(
+                  // Add slight padding between checkbox and text if desired
+                  padding: const EdgeInsets.only(left: 4.0), // Adjust as needed
+                  child: Text(
+                    label,
+                    style: textTheme.bodyMedium?.copyWith(
+                      // Apply disabled look if needed based on canChange
+                      color: canChange ? Colors.grey[700] : Colors.grey[500],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     } // End if type == 'checkbox'
-
-    // if (type == 'checkbox') {
-    //   final bool isFieldEditable =
-    //       fieldConfig['editable'] ?? true; // Get editable flag from config
-    //   // Safely get boolean value from data, default to false if null or wrong type
-    //   final bool currentValueBool =
-    //       (currentValue is bool) ? currentValue : false;
-
-    //   // Determine if the checkbox interaction should be enabled
-    //   final bool canChange = isEditing && isFieldEditable;
-
-    //   return CheckboxListTile(
-    //     title: Text(
-    //       label,
-    //       // Style to match other field labels or content
-    //       style: textTheme.bodyMedium?.copyWith(
-    //         // Grey out label if checkbox cannot be changed currently
-    //         // color: canChange ? Colors.red : Colors.grey[50],
-    //         color: Colors.grey[700],
-    //       ),
-    //     ),
-    //     value: currentValueBool,
-    //     onChanged:
-    //         canChange
-    //             ? (bool? newValue) {
-    //               // Callback only active if canChange is true
-    //               if (newValue != null) {
-    //                 logger.d("Checkbox '$key' changed to: '$newValue'");
-    //                 notifier.updateField(
-    //                   key,
-    //                   newValue,
-    //                 ); // Update state via notifier
-    //               }
-    //             }
-    //             : null, // Setting onChanged to null visually disables the checkbox
-    //     controlAffinity:
-    //         ListTileControlAffinity.leading, // Checkbox appears first
-    //     dense: true, // Reduces vertical height
-    //     contentPadding: EdgeInsets.zero,
-    //     visualDensity: VisualDensity.compact,
-    //     activeColor: colorScheme.primary, // Color when checked
-    //     checkColor: colorScheme.onPrimary, // Color of the check mark itself
-    //     // Ensure checkbox looks appropriately disabled visually when canChange is false
-    //     // tileColor:
-    //     //     canChange
-    //     //         ? null
-    //     //         : theme.disabledColor.withAlpha(
-    //     //           153,
-    //     //         ), // Subtle background when disabled
-    //   );
-    // }
 
     final List<String> nameKeys = [
       // Only letters and spaces
